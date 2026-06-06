@@ -1,13 +1,13 @@
 ---
-title: Architecture Overview
+title: 架构总览
 nav_order: 3
 ---
 
-# Architecture Overview
+# 架构总览
 
-## Layers
+## 分层
 
-TorchEasyRec's architecture is organized into six layers, each with a clear responsibility:
+TorchEasyRec 的架构组织为六层，每层职责清晰：
 
 ```
  Pipeline Config (protobuf)
@@ -37,7 +37,7 @@ TorchEasyRec's architecture is organized into six layers, each with a clear resp
  └─────────────────────────────────────┘
 ```
 
-## High-Level System View
+## 整体系统视图
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
@@ -64,18 +64,14 @@ TorchEasyRec's architecture is organized into six layers, each with a clear resp
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
-The three top-level subsystems (Pipeline Config, Feature System, Model
-System) are independent protobuf-driven modules that share a common
-`Batch` data structure. The Data Pipeline joins them at runtime, and the
-Training/Evaluation/Export/Predict layer drives the model through its
-lifecycle.
+三个顶层子系统（Pipeline Config、Feature System、Model System）都是 protobuf 驱动的独立模块，共享通用的 `Batch` 数据结构。Data Pipeline 在运行时将三者连接，Training/Evaluation/Export/Predict 层驱动模型完成整个生命周期。
 
-## Data Flow (Training)
+## 数据流（训练）
 
-A single training step follows this pipeline:
+单个训练步骤遵循以下管线：
 
 ```
-1. Dataset.__iter__() → raw RecordBatch (pyarrow)
+1. Dataset.__iter__() → 原始 RecordBatch (pyarrow)
         │
         ▼
 2. DataParser.to_batch() → Batch(sparse_features=KJT,
@@ -94,18 +90,18 @@ A single training step follows this pipeline:
         │       │       ├─ DenseEmbeddingCollection (dense)
         │       │       └─ SequenceEmbeddingGroupImpl (sequence)
         │       │
-        │       └─▶ model-specific forward (DeepFM, DSSM, etc.) → predictions
+        │       └─▶ 模型专属 forward (DeepFM、DSSM 等) → predictions
         │
-        ├─▶ model.loss(predictions, batch) → dict of losses
+        ├─▶ model.loss(predictions, batch) → 损失字典
         │
         └─▶ total_loss = sum(losses) → backward
 ```
 
-## Pipeline Config (`EasyRecConfig`)
+## Pipeline Config（`EasyRecConfig`）
 
-The entire pipeline is configured via a single protobuf:
+整个管线通过一个 protobuf 配置：
 
-[`torcheasyrec/tzrec/protos/pipeline.proto`](../torcheasyrec/tzrec/protos/pipeline.proto#L11-L29):
+[`torcheasyrec/tzrec/protos/pipeline.proto`](../torcheasyrec/tzrec/protos/pipeline.proto#L11-L29)：
 
 ```protobuf
 message EasyRecConfig {
@@ -121,9 +117,9 @@ message EasyRecConfig {
 }
 ```
 
-## Model Config (`ModelConfig`)
+## Model Config（`ModelConfig`）
 
-[`torcheasyrec/tzrec/protos/model.proto`](../torcheasyrec/tzrec/protos/model.proto#L45-L96) defines the model as a oneof:
+[`torcheasyrec/tzrec/protos/model.proto`](../torcheasyrec/tzrec/protos/model.proto#L45-L96) 将模型定义为 oneof：
 
 ```protobuf
 message ModelConfig {
@@ -142,60 +138,60 @@ message ModelConfig {
 }
 ```
 
-## Key Architecture Decisions
+## 关键架构决策
 
-### 1. Configuration-Driven
+### 1. 配置驱动
 
-Models, features, data sources, training, and export are all defined in protobuf configs. This enables:
-- Zero-code model experimentation
-- Easy parameter sweeps
-- Consistent config between training and serving
+模型、特征、数据源、训练、导出都通过 protobuf 配置定义。这带来：
+- 零代码模型实验
+- 便捷的参数扫描
+- 训练与推理的配置一致性
 
-### 2. Feature Generation (FG) Encapsulation
+### 2. 特征生成（FG）封装
 
-Each `BaseFeature` subclass owns its FG logic (`_fg_json()`). Features can be:
-- **FG_NONE**: pre-encoded (IDs already hashed, values already normalized)
-- **FG_NORMAL**: feature config parsed by pyfg
-- **FG_DAG**: DAG-based FG with intermediate feature dependencies
+每个 `BaseFeature` 子类自带 FG 逻辑（`_fg_json()`）。特征可处于：
+- **FG_NONE**：预编码（ID 已经哈希、值已经归一化）
+- **FG_NORMAL**：特征配置由 pyfg 解析
+- **FG_DAG**：基于 DAG 的 FG，可引用中间特征
 
-### 3. Embedding Separation
+### 3. 嵌入分离
 
-Sparse features (categorical) use `EmbeddingBagCollection` from TorchRec. Dense features with custom embedding (AutoDis, MLP) use `DenseEmbeddingCollection`. The `EmbeddingGroup` class orchestrates both and groups features by data group (base, neg, user).
+稀疏特征（类别型）使用 TorchRec 的 `EmbeddingBagCollection`。需要自定义嵌入的稠密特征（AutoDis、MLP）使用 `DenseEmbeddingCollection`。`EmbeddingGroup` 类协调两者，并按 data group（base、neg、user）组织特征。
 
-### 4. Model Agnostic Training Loop
+### 4. 与模型无关的训练循环
 
-The training loop in [`main.py`](../torcheasyrec/tzrec/main.py#L317-L530) (`_train_and_evaluate()`) is model-agnostic. All model-specific logic is in:
-- `model.predict(batch)` → predictions dict
-- `model.loss(predictions, batch)` → losses dict
-- `model.update_metric(predictions, batch, losses)` → metric state
+[`main.py`](../torcheasyrec/tzrec/main.py#L317-L530) 中的训练循环（`_train_and_evaluate()`）与模型无关。所有模型特定逻辑集中在：
+- `model.predict(batch)` → predictions 字典
+- `model.loss(predictions, batch)` → losses 字典
+- `model.update_metric(predictions, batch, losses)` → metric 状态
 
-### 5. Wrapper Pattern
+### 5. Wrapper 模式
 
-Three wrappers decouple the model from pipeline concerns:
-- [`TrainWrapper`](../torcheasyrec/tzrec/models/model.py#L235-L288): adds autocast, loss aggregation, Pareto MTL
-- [`PredictWrapper`](../torcheasyrec/tzrec/models/model.py#L291-L340): adds output column filtering, CPU offload
-- [`ScriptWrapper`](../torcheasyrec/tzrec/models/model.py#L343-L393): adds data parsing for JIT/torch.export
+三个 wrapper 将模型与管线关注点解耦：
+- [`TrainWrapper`](../torcheasyrec/tzrec/models/model.py#L235-L288)：添加 autocast、损失聚合、Pareto MTL
+- [`PredictWrapper`](../torcheasyrec/tzrec/models/model.py#L291-L340)：添加输出列过滤、CPU offload
+- [`ScriptWrapper`](../torcheasyrec/tzrec/models/model.py#L343-L393)：为 JIT/torch.export 添加数据解析
 
-## Inference Architecture
+## 推理架构
 
-For production serving, TorchEasyRec supports multiple export paths:
+对于生产服务，TorchEasyRec 支持多条导出路径：
 
 ```
 Training Checkpoint
         │
         ├─▶ JIT Script (TorchScript) → TensorRT
         ├─▶ torch.export → AOTInductor
-        └─▶ Combined: JIT sparse + AOTI dense
+        └─▶ 组合：JIT 稀疏 + AOTI 稠密
 ```
 
-The [`CombinedModelWrapper`](../torcheasyrec/tzrec/models/model.py#L453-L512) splits the model into sparse (embedding, scripted) and dense (MLP, AOTInductor) parts for optimized inference.
+[`CombinedModelWrapper`](../torcheasyrec/tzrec/models/model.py#L453-L512) 将模型拆分为稀疏（嵌入，已 script）和稠密（MLP，AOTInductor）两部分以优化推理。
 
-## References
+## 参考资料
 
-| File | Purpose |
-|------|---------|
-| [`torcheasyrec/tzrec/main.py`](../torcheasyrec/tzrec/main.py) | `train_and_evaluate()`, `_train_and_evaluate()`, `_evaluate()` |
-| [`torcheasyrec/tzrec/models/model.py`](../torcheasyrec/tzrec/models/model.py) | `BaseModel`, `TrainWrapper`, `PredictWrapper`, `ScriptWrapper` |
+| 文件 | 用途 |
+|------|------|
+| [`torcheasyrec/tzrec/main.py`](../torcheasyrec/tzrec/main.py) | `train_and_evaluate()`、`_train_and_evaluate()`、`_evaluate()` |
+| [`torcheasyrec/tzrec/models/model.py`](../torcheasyrec/tzrec/models/model.py) | `BaseModel`、`TrainWrapper`、`PredictWrapper`、`ScriptWrapper` |
 | [`torcheasyrec/tzrec/protos/pipeline.proto`](../torcheasyrec/tzrec/protos/pipeline.proto) | `EasyRecConfig` |
-| [`torcheasyrec/tzrec/protos/model.proto`](../torcheasyrec/tzrec/protos/model.proto) | `ModelConfig`, `FeatureGroupConfig` |
-| [`torcheasyrec/tzrec/utils/config_util.py`](../torcheasyrec/tzrec/utils/config_util.py) | Config loading and editing utilities |
+| [`torcheasyrec/tzrec/protos/model.proto`](../torcheasyrec/tzrec/protos/model.proto) | `ModelConfig`、`FeatureGroupConfig` |
+| [`torcheasyrec/tzrec/utils/config_util.py`](../torcheasyrec/tzrec/utils/config_util.py) | 配置加载与编辑工具 |

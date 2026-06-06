@@ -1,18 +1,18 @@
 ---
-title: Initialization Flow
+title: 初始化流程
 nav_order: 5
 ---
 
-# Initialization Flow
+# 初始化流程
 
-## Entry Point
+## 入口点
 
-The typical entry point is `train_eval.py`:
+典型入口为 `train_eval.py`：
 
 [`torcheasyrec/tzrec/train_eval.py`](../torcheasyrec/tzrec/train_eval.py#L16-L72)
 
 ```python
-# CLI usage:
+# CLI 用法:
 # python -m tzrec.train_eval --pipeline_config_path=config.yaml --model_dir=experiments/
 
 if __name__ == "__main__":
@@ -29,58 +29,58 @@ if __name__ == "__main__":
     train_and_evaluate(...)
 ```
 
-## Initialization Sequence
+## 初始化序列
 
-The full init sequence in [`train_and_evaluate()`](../torcheasyrec/tzrec/main.py#L533-L616):
+[`train_and_evaluate()`](../torcheasyrec/tzrec/main.py#L533-L616) 中的完整 init 序列：
 
 ```
-1. Load pipeline config
+1. 加载 pipeline 配置
         │
-2. Parse CLI overrides (train_input_path, model_dir, fine_tune_checkpoint, edit_config_json)
+2. 解析 CLI 覆盖项 (train_input_path, model_dir, fine_tune_checkpoint, edit_config_json)
         │
 3. init_process_group() → device, backend
    (torch.distributed, NCCL/GLOO)
         │
 4. allow_tf32(train_config)
-   (enable TF32 on Ampere GPUs)
+   (在 Ampere GPU 上启用 TF32)
         │
 5. _create_features(feature_configs, data_config) → List[BaseFeature]
-   (build feature objects, detect neg fields, init fg handlers)
+   (构建特征对象，检测负采样字段，初始化 fg handler)
         │
 6. create_dataloader(data_config, features, train_input_path, TRAIN) → DataLoader
-   (create BaseDataset → wrap in DataLoader)
+   (创建 BaseDataset → 包装为 DataLoader)
         │
 7. create_dataloader(data_config, features, eval_input_path, EVAL) → DataLoader
         │
 8. CheckpointManager(model_dir, keep_checkpoint_max)
-   (initialize checkpoint tracking)
+   (初始化 checkpoint 跟踪)
         │
-9. Determine ckpt_path (fine_tune_checkpoint or existing model_dir)
+9. 确定 ckpt_path (fine_tune_checkpoint 或现有 model_dir)
         │
 10. _create_model(model_config, features, labels, sampler_type) → BaseModel
-    (instantiate model class by name, set kernel)
+    (按名称实例化模型类，设置 kernel)
         │
-11. Wrap in TrainWrapper → DMP (DistributedModelParallel)
+11. 包装为 TrainWrapper → DMP (DistributedModelParallel)
     (autocast, sharding)
         │
-12. Build optimizer + LR scheduler
+12. 构建 optimizer + LR scheduler
     (create_optimizer / TZRecOptimizer)
         │
 13. _train_and_evaluate(model, optimizer, dataloaders, ...)
-    (main training loop)
+    (主训练循环)
 ```
 
-## Step-by-Step Detail
+## 详细步骤
 
-### Step 3: `init_process_group()`
+### Step 3：`init_process_group()`
 
-Sets up torch.distributed. Key file: [`torcheasyrec/tzrec/utils/dist_util.py`](../torcheasyrec/tzrec/utils/dist_util.py).
+设置 torch.distributed。关键文件：[`torcheasyrec/tzrec/utils/dist_util.py`](../torcheasyrec/tzrec/utils/dist_util.py)。
 
-- Detects world size from env vars (RANK, WORLD_SIZE, LOCAL_RANK, MASTER_ADDR)
-- Initializes the default process group with NCCL (GPU) or GLOO (CPU)
-- Returns device and backend strings
+- 从环境变量检测 world size（RANK、WORLD_SIZE、LOCAL_RANK、MASTER_ADDR）
+- 使用 NCCL（GPU）或 GLOO（CPU）初始化默认进程组
+- 返回 device 与 backend 字符串
 
-### Step 5: `_create_features()`
+### Step 5：`_create_features()`
 
 [`torcheasyrec/tzrec/main.py`](../torcheasyrec/tzrec/main.py#L94-L112)
 
@@ -101,17 +101,17 @@ def _create_features(feature_configs, data_config):
     return features
 ```
 
-`create_features()` iterates `FeatureConfig` protos, creates `BaseFeature` subclass instances, marks negative-sampled features, and detects DAG features to determine user/item side.
+`create_features()` 遍历 `FeatureConfig` proto，创建 `BaseFeature` 子类实例，标记负采样特征，并检测 DAG 特征以确定 user/item 侧。
 
-### Step 6: `create_dataloader()`
+### Step 6：`create_dataloader()`
 
 [`torcheasyrec/tzrec/datasets/dataset.py`](../torcheasyrec/tzrec/datasets/dataset.py)
 
-- Creates appropriate `BaseDataset` subclass (CSVDataset, ParquetDataset, ODPSDataset, KafkaDataset)
-- Wraps with `DataLoader` with configurable num_workers, batch_size, prefetch
-- Dataset includes a `DataParser` that converts raw pyarrow data to `Batch` objects
+- 创建相应的 `BaseDataset` 子类（`CSVDataset`、`ParquetDataset`、`ODPSDataset`、`KafkaDataset`）
+- 用可配置的 num_workers、batch_size、prefetch 包装为 `DataLoader`
+- Dataset 包含一个 `DataParser`，将原始 pyarrow 数据转换为 `Batch` 对象
 
-### Step 10: `_create_model()`
+### Step 10：`_create_model()`
 
 [`torcheasyrec/tzrec/main.py`](../torcheasyrec/tzrec/main.py#L127-L159)
 
@@ -125,40 +125,40 @@ def _create_model(model_config, features, labels, sampler_type):
     return model
 ```
 
-Model classes are auto-registered via `get_register_class_meta()` in [`model.py`](../torcheasyrec/tzrec/models/model.py#L37-L38). The `config_util.which_msg()` extracts the oneof field name (e.g., "deepfm", "dssm"), which maps to a class name via the auto-registration decorator.
+模型类通过 [`model.py`](../torcheasyrec/tzrec/models/model.py#L37-L38) 中的 `get_register_class_meta()` 自动注册。`config_util.which_msg()` 提取 oneof 字段名（如 `"deepfm"`、`"dssm"`），它通过自动注册装饰器映射到类名。
 
-### Step 11: DistributedModelParallel
+### Step 11：DistributedModelParallel
 
 [`torcheasyrec/tzrec/utils/dist_util.py`](../torcheasyrec/tzrec/utils/dist_util.py)
 
-- Wraps the model with TorchRec's `DistributedModelParallel`
-- Creates a sharding plan via `create_planner()` based on `ParameterConstraints`
-- Handles embedding table sharding (row-wise, column-wise, table-wise)
+- 用 TorchRec 的 `DistributedModelParallel` 包装模型
+- 基于 `ParameterConstraints` 通过 `create_planner()` 创建分片计划
+- 处理嵌入表分片（行分片、列分片、表分片）
 
-## Package Init (`__init__.py`)
+## 包初始化（`__init__.py`）
 
 [`torcheasyrec/tzrec/__init__.py`](../torcheasyrec/tzrec/__init__.py)
 
-Before any user code runs, the package init:
+在任何用户代码运行前，包 init 会：
 
-1. **Disables ECS metadata** (to avoid unnecessary network calls)
-2. **Suppresses fbgemm warnings** (known autograd kernel missing)
-3. **Sets OMP_NUM_THREADS=1** (prevents thread contention)
-4. **Imports graphlearn + pyfg** (sets glog to stderr)
-5. **Configures logging** (LOG_LEVEL env var)
-6. **Sets random seeds** (TORCH_MANUAL_SEED, NUMPY_MANUAL_SEED)
-7. **Enables deterministic algorithms** (USE_DETERMINISTIC_ALGORITHMS)
-8. **Auto-imports all classes** (load_class.auto_import)
-9. **Registers external filesystem** (OSS, ODPS)
-10. **Applies RAM credential patch** (for Alibaba Cloud)
+1. **禁用 ECS metadata**（避免不必要的网络调用）
+2. **抑制 fbgemm 警告**（已知的 autograd kernel 缺失）
+3. **设置 OMP_NUM_THREADS=1**（防止线程争用）
+4. **导入 graphlearn + pyfg**（将 glog 设置到 stderr）
+5. **配置 logging**（LOG_LEVEL 环境变量）
+6. **设置随机种子**（TORCH_MANUAL_SEED、NUMPY_MANUAL_SEED）
+7. **启用确定性算法**（USE_DETERMINISTIC_ALGORITHMS）
+8. **自动导入所有类**（load_class.auto_import）
+9. **注册外部文件系统**（OSS、ODPS）
+10. **应用 RAM 凭证补丁**（针对阿里云）
 
-## Key Files
+## 关键文件
 
-| File | Purpose |
-|------|---------|
-| [`torcheasyrec/tzrec/train_eval.py`](../torcheasyrec/tzrec/train_eval.py) | CLI entry point |
-| [`torcheasyrec/tzrec/main.py`](../torcheasyrec/tzrec/main.py) | `train_and_evaluate()`, init sequence |
-| [`torcheasyrec/tzrec/__init__.py`](../torcheasyrec/tzrec/__init__.py) | Package-level initialization |
-| [`torcheasyrec/tzrec/utils/dist_util.py`](../torcheasyrec/tzrec/utils/dist_util.py) | `init_process_group()`, `DistributedModelParallel` |
-| [`torcheasyrec/tzrec/utils/config_util.py`](../torcheasyrec/tzrec/utils/config_util.py) | Config loading, `which_msg()` |
-| [`torcheasyrec/tzrec/utils/plan_util.py`](../torcheasyrec/tzrec/utils/plan_util.py) | TorchRec sharding planner |
+| 文件 | 用途 |
+|------|------|
+| [`torcheasyrec/tzrec/train_eval.py`](../torcheasyrec/tzrec/train_eval.py) | CLI 入口点 |
+| [`torcheasyrec/tzrec/main.py`](../torcheasyrec/tzrec/main.py) | `train_and_evaluate()`、init 序列 |
+| [`torcheasyrec/tzrec/__init__.py`](../torcheasyrec/tzrec/__init__.py) | 包级初始化 |
+| [`torcheasyrec/tzrec/utils/dist_util.py`](../torcheasyrec/tzrec/utils/dist_util.py) | `init_process_group()`、`DistributedModelParallel` |
+| [`torcheasyrec/tzrec/utils/config_util.py`](../torcheasyrec/tzrec/utils/config_util.py) | 配置加载、`which_msg()` |
+| [`torcheasyrec/tzrec/utils/plan_util.py`](../torcheasyrec/tzrec/utils/plan_util.py) | TorchRec 分片规划器 |

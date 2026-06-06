@@ -1,22 +1,22 @@
 ---
-title: Training Flow
+title: 训练流程
 nav_order: 6
 ---
 
-# Training Flow
+# 训练流程
 
-## Overview
+## 概览
 
-The training flow starts in [`_train_and_evaluate()`](../torcheasyrec/tzrec/main.py#L317-L530). Each training step processes:
+训练流程从 [`_train_and_evaluate()`](../torcheasyrec/tzrec/main.py#L317-L530) 启动。每一步处理：
 
 ```
 DataLoader → pipeline.progress(iterator) → (losses, predictions, batch)
-                                           → optimizer.step()
-                                           → update_metric()
-                                           → log()
+                                            → optimizer.step()
+                                            → update_metric()
+                                            → log()
 ```
 
-## The Training Loop
+## 训练循环
 
 ```
 For each epoch:
@@ -35,13 +35,14 @@ For each epoch:
 
 [`torcheasyrec/tzrec/utils/dist_util.py`](../torcheasyrec/tzrec/utils/dist_util.py)
 
-Creates a pipeline function that:
-1. Fetches next batch from iterator
-2. Moves batch to GPU
-3. Calls model (TrainWrapper.forward)
-4. Calls backward on total_loss
-5. Calls optimizer.step()
-6. Returns (losses_dict, predictions_dict, batch)
+创建一个 pipeline 函数，依次：
+
+1. 从 iterator 拉取下一个 batch
+2. 将 batch 移动到 GPU
+3. 调用模型（`TrainWrapper.forward`）
+4. 在 total_loss 上调用 backward
+5. 调用 `optimizer.step()`
+6. 返回 `(losses_dict, predictions_dict, batch)`
 
 ### `TrainWrapper.forward()`
 
@@ -61,53 +62,53 @@ def forward(self, batch):
     return total_loss, (losses, predictions, batch)
 ```
 
-Key points:
-- **Autocast**: FP16/BF16 mixed precision if configured
-- **Pareto MTL**: Optional Pareto-efficient multi-task loss weighting
-- **Loss aggregation**: All losses are summed
-- **Detach**: Losses and predictions are detached for logging/metrics
+关键点：
+- **Autocast**：若已配置则使用 FP16/BF16 混合精度
+- **Pareto MTL**：可选的 Pareto-efficient 多任务损失加权
+- **损失聚合**：所有损失求和
+- **Detach**：losses 与 predictions 被 detach 以用于日志/指标
 
-## Data Flow Through a Step
+## 单步数据流
 
 ### 1. Dataset → Batch
 
-The dataset yields `RecordBatch` objects (pyarrow tables). `DataParser.to_batch()` converts them:
+Dataset 产出 `RecordBatch` 对象（pyarrow 表）。`DataParser.to_batch()` 进行转换：
 
 [`torcheasyrec/tzrec/datasets/data_parser.py`](../torcheasyrec/tzrec/datasets/data_parser.py)
 
 ```python
 class DataParser:
     def to_batch(self, data: Dict[str, pa.Array]) -> Batch:
-        # For each feature, parse raw data → SparseData/DenseData
-        # Group by data group (BASE_DATA_GROUP, NEG_DATA_GROUP)
-        # Build KeyedJaggedTensor (sparse) and KeyedTensor (dense)
-        # Return Batch(sparse_features, dense_features, labels, ...)
+        # 对每个 feature，解析原始数据 → SparseData/DenseData
+        # 按 data group 分组 (BASE_DATA_GROUP, NEG_DATA_GROUP)
+        # 构建 KeyedJaggedTensor (sparse) 与 KeyedTensor (dense)
+        # 返回 Batch(sparse_features, dense_features, labels, ...)
 ```
 
 ### 2. Batch → Embedding
 
-`EmbeddingGroup.forward(batch)` processes the batch:
+`EmbeddingGroup.forward(batch)` 处理 batch：
 
 [`torcheasyrec/tzrec/modules/embedding.py`](../torcheasyrec/tzrec/modules/embedding.py#L419-L508)
 
 ```
-For each embedding implementation:
-    Extract sparse KJT (KeyedJaggedTensor) from batch.sparse_features
-    Extract dense KT (KeyedTensor) from batch.dense_features
-    Forward through:
-        - EmbeddingBagCollection (sparse categorical features)
-        - ManagedCollisionEmbeddingBagCollection (ZCH features)
-        - DenseEmbeddingCollection (AutoDis/MLP embedded dense features)
-        - SequenceEmbeddingGroupImpl (sequence features)
-    Combine outputs into grouped_features dict
-For each sequence encoder:
-    Apply sequence encoder to grouped_features
-Return grouped_features
+对每个嵌入实现:
+    从 batch.sparse_features 抽取 sparse KJT (KeyedJaggedTensor)
+    从 batch.dense_features 抽取 dense KT (KeyedTensor)
+    前向传播通过:
+        - EmbeddingBagCollection (sparse 类别特征)
+        - ManagedCollisionEmbeddingBagCollection (ZCH 特征)
+        - DenseEmbeddingCollection (AutoDis/MLP 嵌入的 dense 特征)
+        - SequenceEmbeddingGroupImpl (sequence 特征)
+    将输出合并为 grouped_features 字典
+对每个序列编码器:
+    对 grouped_features 应用序列编码器
+返回 grouped_features
 ```
 
 ### 3. Embedding → Predictions
 
-Each model implements `predict(batch)`:
+每个模型实现 `predict(batch)`：
 
 [`torcheasyrec/tzrec/models/deepfm.py`](../torcheasyrec/tzrec/models/deepfm.py#L72-L108)
 
@@ -124,16 +125,16 @@ def predict(self, batch):
     fm_feat = grouped_features.get("fm", deep_feat)
     fm_feat = fm_feat.reshape(-1, n_fields, emb_dim)
     y_fm = self.fm(fm_feat)
-    # Combine
+    # 合并
     y = y_wide + y_fm.sum(dim=1, keepdim=True) + self.output_mlp(y_deep)
     return self._output_to_prediction(y)
 ```
 
-`_output_to_prediction()` converts logits to predictions dict with `logits`, `probs`, etc., based on loss type.
+`_output_to_prediction()` 基于 loss 类型将 logits 转换为 predictions 字典，包含 `logits`、`probs` 等。
 
 ### 4. Predictions → Loss
 
-`RankModel.loss()` or `MatchModel.loss()` computes losses:
+`RankModel.loss()` 或 `MatchModel.loss()` 计算损失：
 
 [`torcheasyrec/tzrec/models/rank_model.py`](../torcheasyrec/tzrec/models/rank_model.py#L264-L287)
 
@@ -156,11 +157,12 @@ total_loss.backward()
 GradientClippingOptimizer.step()
 ```
 
-The optimizer is built in [`torcheasyrec/tzrec/optim/optimizer_builder.py`](../torcheasyrec/tzrec/optim/optimizer_builder.py). It uses TorchRec's `CombinedOptimizer` which handles:
-- **Sparse parameters**: optimized in-backward (via `apply_optimizer_in_backward`)
-- **Dense parameters**: standard optimizers (SGD, Adam, Adagrad)
+optimizer 在 [`torcheasyrec/tzrec/optim/optimizer_builder.py`](../torcheasyrec/tzrec/optim/optimizer_builder.py) 中构建。它使用 TorchRec 的 `CombinedOptimizer`，处理：
 
-## Evaluation Flow
+- **稀疏参数**：在 backward 中优化（通过 `apply_optimizer_in_backward`）
+- **稠密参数**：标准 optimizer（SGD、Adam、Adagrad）
+
+## 评估流程
 
 [`_evaluate()`](../torcheasyrec/tzrec/main.py#L162-L226)
 
@@ -174,42 +176,40 @@ with torch.no_grad():
 metric_result = model.compute_metric()
 ```
 
-Metrics are computed via `torchmetrics` objects stored in `model._metric_modules`.
+指标通过存储在 `model._metric_modules` 中的 `torchmetrics` 对象计算。
 
-## Checkpointing
+## Checkpoint
 
 [`torcheasyrec/tzrec/utils/checkpoint_util.py`](../torcheasyrec/tzrec/utils/checkpoint_util.py)
 
-- `CheckpointManager` saves model + optimizer + dataloader state
-- Supports `fine_tune_checkpoint` for transfer learning
-- `save_checkpoints_steps` / `save_checkpoints_epochs` control frequency
-- Also handles model export during checkpointing
+- `CheckpointManager` 保存模型 + optimizer + dataloader 状态
+- 支持 `fine_tune_checkpoint` 用于迁移学习
+- `save_checkpoints_steps` / `save_checkpoints_epochs` 控制频率
+- 同时处理 checkpoint 期间的模型导出
 
-## Logging
+## 日志
 
-Train metrics (loss, learning rate, gradient norm) are logged via:
+训练指标（loss、learning rate、gradient norm）通过以下方式记录：
 
-- **ProgressLogger**: text progress bar
-- **SummaryWriter**: TensorBoard (loss, learning_rate, gradient, parameter histograms)
+- **ProgressLogger**：文本进度条
+- **SummaryWriter**：TensorBoard（loss、learning_rate、gradient、参数直方图）
 
-Train metrics like `DecayAUC` are collected during training and logged periodically.
+训练指标（如 `DecayAUC`）在训练期间收集并定期记录。
 
-## Key Files
+## 关键文件
 
-| File | Purpose |
-|------|---------|
-| [`torcheasyrec/tzrec/main.py`](../torcheasyrec/tzrec/main.py#L317-L530) | `_train_and_evaluate()`, `_evaluate()`, `_log_train()` |
+| 文件 | 用途 |
+|------|------|
+| [`torcheasyrec/tzrec/main.py`](../torcheasyrec/tzrec/main.py#L317-L530) | `_train_and_evaluate()`、`_evaluate()`、`_log_train()` |
 | [`torcheasyrec/tzrec/models/model.py`](../torcheasyrec/tzrec/models/model.py#L235-L288) | `TrainWrapper.forward()` |
-| [`torcheasyrec/tzrec/utils/dist_util.py`](../torcheasyrec/tzrec/utils/dist_util.py) | `create_train_pipeline()`, `DistributedModelParallel` |
+| [`torcheasyrec/tzrec/utils/dist_util.py`](../torcheasyrec/tzrec/utils/dist_util.py) | `create_train_pipeline()`、`DistributedModelParallel` |
 | [`torcheasyrec/tzrec/modules/embedding.py`](../torcheasyrec/tzrec/modules/embedding.py#L419-L508) | `EmbeddingGroup.forward()` |
-| [`torcheasyrec/tzrec/optim/optimizer_builder.py`](../torcheasyrec/tzrec/optim/optimizer_builder.py) | Optimizer construction |
-| [`torcheasyrec/tzrec/utils/checkpoint_util.py`](../torcheasyrec/tzrec/utils/checkpoint_util.py) | Checkpoint management |
+| [`torcheasyrec/tzrec/optim/optimizer_builder.py`](../torcheasyrec/tzrec/optim/optimizer_builder.py) | Optimizer 构建 |
+| [`torcheasyrec/tzrec/utils/checkpoint_util.py`](../torcheasyrec/tzrec/utils/checkpoint_util.py) | Checkpoint 管理 |
 
-## Two-Phase Initialization: Planner + DMP
+## 两阶段初始化：Planner + DMP
 
-TorchEasyRec's distributed training uses a **two-phase initialization** to
-wire up TorchRec sharding — a static planning step followed by a dynamic
-execution step:
+TorchEasyRec 的分布式训练采用**两阶段初始化**来连接 TorchRec 分片——一个静态规划步骤，紧随其后一个动态执行步骤：
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -259,7 +259,7 @@ execution step:
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-[`torcheasyrec/tzrec/utils/dist_util.py:154-183`](../torcheasyrec/tzrec/utils/dist_util.py#L154-L183):
+[`torcheasyrec/tzrec/utils/dist_util.py:154-183`](../torcheasyrec/tzrec/utils/dist_util.py#L154-L183)：
 
 ```python
 def DistributedModelParallel(
@@ -284,54 +284,31 @@ def DistributedModelParallel(
     return model
 ```
 
-**Phase 1 (Planner)** — A static pass that inspects the model topology,
-device mesh, and memory budget to decide how each embedding table is
-sharded. The output is a `ShardingPlan` describing the placement.
+**Phase 1 (Planner)** — 一个静态遍历，检视模型拓扑、设备 mesh 和内存预算，决定每个嵌入表如何分片。输出是描述分片位置的 `ShardingPlan`。
 
-**Phase 2 (DMP)** — A dynamic pass that consumes the `ShardingPlan` and
-applies it to the live module: it shards the parameter tensors across
-ranks, injects AllToAll / ReduceScatter collectives for cross-rank
-communication, and wraps each sharded sub-module in a `ShardedModule`
-that handles per-rank execution.
+**Phase 2 (DMP)** — 一个动态遍历，消耗 `ShardingPlan` 并将其应用到实时模块：跨 rank 分片参数张量，注入用于跨 rank 通信的 AllToAll / ReduceScatter 集合通信，将每个分片子模块包装到 `ShardedModule` 中处理 per-rank 执行。
 
-The split into two phases is necessary because:
+将流程拆分为两个阶段是必要的，原因如下：
 
-- The plan is deterministic given a model + topology + budget, so it can
-  be computed once and reused (e.g., shared across training and export,
-  see `FORCE_LOAD_SHARDING_PLAN`).
-- The execution step requires live distributed context (process groups,
-  NCCL handles) that only exists after `torch.distributed.init_process_group`.
+- 计划在给定模型 + 拓扑 + 预算后是确定性的，因此可以计算一次并复用（例如在训练和导出之间共享，参见 `FORCE_LOAD_SHARDING_PLAN`）。
+- 执行步骤需要只有 `torch.distributed.init_process_group` 之后才存在的实时分布式上下文（进程组、NCCL 句柄）。
 
-**Lazy Input Dist**: DMP keeps input distribution modules
-(`_has_uninitialized_input_dist = True`) uninitialized until the first
-forward pass. This avoids materializing communication buffers for sparse
-modules that might never be called in a given model variant.
+**Lazy Input Dist**：DMP 保持输入分布模块（`_has_uninitialized_input_dist = True`）未初始化，直到第一次前向传播。这避免了为在给定模型变体中可能永远不会被调用的稀疏模块物化通信缓冲。
 
-## Mixed Precision Training
+## 混合精度训练
 
-The `TrainWrapper` autocast block (see §`TrainWrapper.forward()` above)
-runs the dense forward in FP16 or BF16 if configured, but leaves the
-sparse embedding lookups in their native FP32 (the lookup itself is a
-gather, not a matmul, so AMP adds no speedup but does complicate
-`torch.jit.script`).
+`TrainWrapper` autocast 块（见上文 `TrainWrapper.forward()`）在配置时以 FP16 或 BF16 运行稠密前向，但将稀疏嵌入查找保留在其原生 FP32 中（查找本身是 gather 而非 matmul，因此 AMP 不会带来加速，但会使 `torch.jit.script` 编译复杂化）。
 
-For FP16 (where the smaller dynamic range risks gradient underflow),
-`TZRecOptimizer` wraps the combined optimizer with a `GradScaler` that
-multiplies the loss by a `scale_factor` (e.g., 65536) before backward,
-checks the resulting gradients for inf/nan, and:
+对于 FP16（动态范围较小，有梯度下溢风险），`TZRecOptimizer` 用 `GradScaler` 包装组合 optimizer，该 scaler 在反向传播前将 loss 乘以 `scale_factor`（例如 65536），检查结果梯度是否有 inf/nan，并：
 
-- On inf/nan: shrinks `scale_factor` by `backoff_factor` (default 0.5)
-  and skips the step.
-- After N consecutive clean steps: grows `scale_factor` by
-  `growth_factor` (default 2.0).
+- 检测到 inf/nan 时：将 `scale_factor` 按 `backoff_factor`（默认 0.5）缩小并跳过该步骤。
+- 连续 N 步无异常后：将 `scale_factor` 按 `growth_factor`（默认 2.0）增大。
 
-This is a standard PyTorch AMP pattern; see
-[`torcheasyrec/tzrec/main.py:709-714`](../torcheasyrec/tzrec/main.py#L709-L714) for the
-scaler construction.
+这是标准 PyTorch AMP 模式；scaler 构造见 [`torcheasyrec/tzrec/main.py:709-714`](../torcheasyrec/tzrec/main.py#L709-L714)。
 
-## Pipeline Parallelism
+## 流水线并行
 
-[`torcheasyrec/tzrec/utils/dist_util.py:304-345`](../torcheasyrec/tzrec/utils/dist_util.py#L304-L345) — `create_train_pipeline()`:
+[`torcheasyrec/tzrec/utils/dist_util.py:304-345`](../torcheasyrec/tzrec/utils/dist_util.py#L304-L345) — `create_train_pipeline()`：
 
 ```python
 def create_train_pipeline(
@@ -362,23 +339,14 @@ def create_train_pipeline(
         )
 ```
 
-- `TrainPipelineBase` — vanilla pipeline for models with no sharded
-  modules. Used when the model has no embedding tables (rare; the
-  pipeline still has an optimizer / scaler wrapper).
-- `TrainPipelineSparseDist` — TorchRec's pipeline that pipelines
-  data-loading on a separate CUDA stream so the next batch's host-side
-  preprocessing overlaps the current batch's GPU forward/backward. Only
-  valid when the model contains `ShardedModule`s (i.e., embedding
-  tables), because the pipelined iteration needs sharded data-parallel
-  input distribution.
+- `TrainPipelineBase` — 无分片模块模型的 vanilla pipeline。当模型没有嵌入表（罕见；pipeline 仍具有 optimizer / scaler 包装器）时使用。
+- `TrainPipelineSparseDist` — TorchRec 的 pipeline，在独立 CUDA stream 上对数据加载进行流水线化处理，使下一个 batch 的主机端预处理与当前 batch 的 GPU 前向/反向重叠。仅在模型包含 `ShardedModule`（即嵌入表）时有效，因为流水线迭代需要分片数据并行输入分布。
 
-`execute_all_batches=True` ensures all ranks see all batches (vs. sharding
-batches by rank), which is required for some negative samplers and
-for `check_all_workers_data_status` debugging.
+`execute_all_batches=True` 确保所有 rank 看到所有 batch（而不是按 rank 分片 batch），这对于某些负采样器和 `check_all_workers_data_status` 调试是必需的。
 
-## Optimizer Construction
+## Optimizer 构建
 
-[`torcheasyrec/tzrec/main.py:656-741`](../torcheasyrec/tzrec/main.py#L656-L741):
+[`torcheasyrec/tzrec/main.py:656-741`](../torcheasyrec/tzrec/main.py#L656-L741)：
 
 ```python
 # 稀疏优化器用于 embedding 参数
@@ -420,7 +388,7 @@ optimizer = TZRecOptimizer(
 )
 ```
 
-**Optimizer hierarchy:**
+**Optimizer 层级：**
 
 ```
 TZRecOptimizer
@@ -431,23 +399,18 @@ TZRecOptimizer
 └── GradScaler (混合精度)
 ```
 
-The three-way split:
+三层分割：
 
-- **Sparse optimizers** are applied in-backward via
-  `apply_optimizer_in_backward` — this avoids materializing the full
-  embedding gradient as a dense tensor (sparse Adam has O(num_lookups)
-  state, not O(table_size)).
-- **Dense optimizer** is a standard per-parameter PyTorch optimizer.
-- **Frozen parameters** (e.g., the SSTable in a `ManagedCollisionModule`)
-  are bound to `SGD(lr=0.0)` so the framework still tracks them but they
-  don't actually update.
+- **稀疏优化器** 通过 `apply_optimizer_in_backward` 在 backward 中应用——避免将完整嵌入梯度物化为稠密张量（稀疏 Adam 的状态为 O(num_lookups) 而非 O(table_size)）。
+- **稠密优化器** 是标准的 per-parameter PyTorch 优化器。
+- **冻结参数**（例如 `ManagedCollisionModule` 中的 SSTable）被绑定到 `SGD(lr=0.0)`，框架仍跟踪它们但它们实际上不更新。
 
-## Distributed Training — Datasets
+## 分布式训练 — Datasets
 
-| Dataset | File | Notes |
+| Dataset | 文件 | 说明 |
 |---|---|---|
-| `CsvDataset` | `csv_dataset.py` | CSV files with custom delimiter |
-| `ParquetDataset` | `parquet_dataset.py` | Apache Parquet columnar |
-| `OdpsDataset` | `odps_dataset.py` | Alibaba MaxCompute (ODPS) |
-| `OdpsDatasetV1` | `odps_dataset_v1.py` | Legacy ODPS Tunnel API |
-| `KafkaDataset` | `kafka_dataset.py` | Kafka streaming |
+| `CsvDataset` | `csv_dataset.py` | CSV 文件，自定义分隔符 |
+| `ParquetDataset` | `parquet_dataset.py` | Apache Parquet 列式 |
+| `OdpsDataset` | `odps_dataset.py` | 阿里云 MaxCompute (ODPS) |
+| `OdpsDatasetV1` | `odps_dataset_v1.py` | 旧版 ODPS Tunnel API |
+| `KafkaDataset` | `kafka_dataset.py` | Kafka 流式 |

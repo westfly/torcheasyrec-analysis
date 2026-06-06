@@ -1,20 +1,20 @@
 ---
-title: DynamicEmb Integration
+title: DynamicEmb 集成
 nav_order: 11
 ---
 
-# DynamicEmb Integration
+# DynamicEmb 集成
 
-## Overview
+## 概览
 
-TorchEasyRec integrates [DynamicEmb](https://github.com/NVIDIA/recsys-examples/tree/main/corelib/dynamicemb), an NVIDIA open-source GPU hash-table embedding library, as an alternative sparse embedding backend alongside TorchRec's `EmbeddingBagCollection` (EBC) / `EmbeddingCollection` (EC) backed by FBGEMM. The integration is **optional and additive** — features configured with `dynamicemb { ... }` go through the DynamicEmb path; everything else stays on the standard EBC/EC path.
+TorchEasyRec 集成了 [DynamicEmb](https://github.com/NVIDIA/recsys-examples/tree/main/corelib/dynamicemb)——NVIDIA 开源的 GPU 哈希表嵌入库——作为 TorchRec 由 FBGEMM 支持的 `EmbeddingBagCollection` (EBC) / `EmbeddingCollection` (EC) 之外的替代稀疏嵌入后端。集成是**可选且累加**的——使用 `dynamicemb { ... }` 配置的特征走 DynamicEmb 路径；其他特征保持走标准 EBC/EC 路径。
 
-DynamicEmb is a **customized compute kernel** in TorchRec's sharding framework, not a replacement for EBC. It plugs into the existing planner / sharder / checkpoint machinery through monkey-patched hooks and a small integration shim.
+DynamicEmb 是 TorchRec 分片框架中的**定制 compute kernel**，而非 EBC 的替代品。它通过 monkey-patch 的 hook 和一个小型集成 shim 接入现有的 planner / sharder / checkpoint 机制。
 
-This document covers two perspectives:
+本文档涵盖两个视角：
 
-1. **NVIDIA upstream** — what DynamicEmb provides as a library
-2. **TorchEasyRec integration** — what the integration adds on top
+1. **NVIDIA 上游** — DynamicEmb 作为库提供了什么
+2. **TorchEasyRec 集成** — 集成在上游基础上增加了什么
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
@@ -37,32 +37,32 @@ This document covers two perspectives:
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
-The upstream code lives in this analysis repo as a submodule:
-[`external/recsys-examples/corelib/dynamicemb/`](../external/recsys-examples/corelib/dynamicemb/) (commit `2091502`, Apache-2.0, copyright NVIDIA 2025).
+上游代码作为子模块存在于本分析仓库：
+[`external/recsys-examples/corelib/dynamicemb/`](../external/recsys-examples/corelib/dynamicemb/)（commit `2091502`，Apache-2.0，NVIDIA 2025 版权所有）。
 
-The TorchEasyRec integration lives at:
-[`torcheasyrec/tzrec/utils/dynamicemb_util.py`](../torcheasyrec/tzrec/utils/dynamicemb_util.py) (794 lines, 2024 Alibaba, Apache-2.0).
+TorchEasyRec 集成位于：
+[`torcheasyrec/tzrec/utils/dynamicemb_util.py`](../torcheasyrec/tzrec/utils/dynamicemb_util.py)（794 行，2024 Alibaba，Apache-2.0）。
 
-## Why DynamicEmb?
+## 为什么选择 DynamicEmb？
 
-Standard FBGEMM-backed embedding tables are **pre-allocated dense arrays** indexed by integer ID. This works well when the ID space is small and bounded (e.g., ≤ 10M), but breaks down for:
+标准 FBGEMM 支持的嵌入表是**预分配的稠密数组**，由整数 ID 索引。当 ID 空间小且有界（例如 ≤ 10M）时效果良好，但在以下场景会崩溃：
 
-- **Massive cardinality** — long-tail features with billions of unique IDs (cold-start IDs that may never appear in training)
-- **Highly skewed distributions** — most rows are sparse / never touched, wasting HBM
-- **Dynamic workloads** — production traffic patterns shift over time, pre-sizing is hard
+- **巨大基数** — 长尾特征具有数十亿唯一 ID（可能永远不会出现在训练中的冷启动 ID）
+- **高度偏斜的分布** — 大多数行是稀疏的 / 永远不被触及，浪费 HBM
+- **动态工作负载** — 生产流量模式随时间变化，预分配很难
 
-DynamicEmb solves this with a **GPU hash table** that:
+DynamicEmb 用**GPU 哈希表**解决此问题，其特性：
 
-- **Grows on demand** — buckets are added as new IDs arrive
-- **Evicts cold IDs** — LRU / LFU / epoch-based / customized scoring policies
-- **Spills to host memory** — values can live on host (DDR) with an HBM cache, controlled by `cache_load_factor`
-- **Uses no FBGEMM rows** — the kernel (`DynamicEmbStorage` / `HybridStorage` / `DynamicEmbCache` in C++/CUDA) is a custom implementation in `dynamicemb_extensions`
+- **按需增长** — 新 ID 到达时添加桶
+- **淘汰冷 ID** — LRU / LFU / 基于 epoch / 定制评分策略
+- **溢出到主机内存** — 值可以驻留在主机（DDR）上，带 HBM 缓存，由 `cache_load_factor` 控制
+- **不使用 FBGEMM 行** — kernel（`DynamicEmbStorage` / `HybridStorage` / `DynamicEmbCache`，C++/CUDA）是 `dynamicemb_extensions` 中的定制实现
 
-The trade-off: DynamicEmb has higher per-lookup latency than dense FBGEMM (hash probe + possible host spill), but eliminates the memory waste of pre-allocation.
+权衡：DynamicEmb 的每次查找延迟比稠密 FBGEMM 高（哈希探测 + 可能的主机溢出），但消除了预分配的内存浪费。
 
-## Storage Modes (HBM / HYBRID / CACHING)
+## 存储模式（HBM / HYBRID / CACHING）
 
-The runtime has three storage modes, selected by the planner based on `cache_load_factor` and `caching` flag:
+运行时有三种存储模式，由 planner 基于 `cache_load_factor` 和 `caching` 标志选择：
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
@@ -89,37 +89,37 @@ The runtime has three storage modes, selected by the planner based on `cache_loa
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
-The mode is **implicit**, derived from `(cache_load_factor, caching)`:
+该模式是**隐式**的，从 `(cache_load_factor, caching)` 派生：
 
-| `cache_load_factor` | `caching` | Mode | Notes |
+| `cache_load_factor` | `caching` | 模式 | 说明 |
 |---|---|---|---|
-| `1.0` | either | `HBM_ONLY` | Host tier dropped; `dynamicemb` runtime switches to `DynamicEmbStorage` kernel |
-| `< 1.0` | `False` | `HYBRID` | Values hash-partitioned across HBM / host |
-| `< 1.0` | `True` | `CACHING` | HBM is a hot-row cache over host backing store |
+| `1.0` | 任一 | `HBM_ONLY` | 主机层被丢弃；`dynamicemb` 运行时切换到 `DynamicEmbStorage` kernel |
+| `< 1.0` | `False` | `HYBRID` | 值跨 HBM / 主机哈希分区 |
+| `< 1.0` | `True` | `CACHING` | HBM 是主机后备存储的热行缓存 |
 
-The 8x jump in `_dynamicemb_effective_cache_ratio()` at `cache_load_factor=1.0` ([`dynamicemb_util.py:94-95`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L94-L95)) reflects this mode switch — the runtime kernel changes, not just the parameters.
+`_dynamicemb_effective_cache_ratio()` 在 `cache_load_factor=1.0` 处的 8x 跳变（[`dynamicemb_util.py:94-95`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L94-L95)）反映了这种模式切换——运行时 kernel 改变，而不仅仅是参数。
 
-## Eviction Strategies
+## 淘汰策略
 
-[`dynamicemb/dynamicemb_config.py:104-110`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/dynamicemb_config.py#L104-L110):
+[`dynamicemb/dynamicemb_config.py:104-110`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/dynamicemb_config.py#L104-L110)：
 
 ```python
 class DynamicEmbEvictStrategy(enum.Enum):
-    LRU = EvictStrategy.KLru           # standard LRU
-    LFU = EvictStrategy.KLfu           # standard LFU
-    EPOCH_LRU = EvictStrategy.KEpochLru  # LRU within a training epoch
-    EPOCH_LFU = EvictStrategy.KEpochLfu  # LFU within a training epoch
-    CUSTOMIZED = EvictStrategy.KCustomized  # user-provided per-row score
+    LRU = EvictStrategy.KLru           # 标准 LRU
+    LFU = EvictStrategy.KLfu           # 标准 LFU
+    EPOCH_LRU = EvictStrategy.KEpochLru  # 训练 epoch 内的 LRU
+    EPOCH_LFU = EvictStrategy.KEpochLfu  # 训练 epoch 内的 LFU
+    CUSTOMIZED = EvictStrategy.KCustomized  # 用户提供的 per-row score
 ```
 
-Pair with `DynamicEmbScoreStrategy` ([`types.py:113`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/types.py#L113)):
-- `STEP` — score increases monotonically per step (aging)
-- `TIMESTAMP` — score is the step index
-- `CUSTOMIZED` — user-supplied scores per row
+与 `DynamicEmbScoreStrategy` 配对（[`types.py:113`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/types.py#L113)）：
+- `STEP` — score 按步骤单调递增（老化）
+- `TIMESTAMP` — score 即步索引
+- `CUSTOMIZED` — 用户为每行提供的 score
 
-## Per-Feature Config (protobuf)
+## Per-Feature 配置（protobuf）
 
-A feature opts in to DynamicEmb by setting `dynamicemb { ... }` in its `FeatureConfig` ([`feature.proto`](../torcheasyrec/tzrec/protos/feature.proto)):
+通过在其 `FeatureConfig` 中设置 `dynamicemb { ... }` 来选择使用 DynamicEmb（[`feature.proto`](../torcheasyrec/tzrec/protos/feature.proto)）：
 
 ```protobuf
 message FeatureConfig {
@@ -127,16 +127,16 @@ message FeatureConfig {
     oneof embedding {
         RegularEmbedding regular_embedding = 4;
         ZchEmbedding zch_embedding = 5;
-        DynamicEmbedding dynamic_embedding = 6;  // <- opt-in to dynamicemb
+        DynamicEmbedding dynamic_embedding = 6;  // <- 选择使用 dynamicemb
     }
     ...
 }
 
 message DynamicEmbedding {
-    int64 max_capacity = 1;                       // per-rank row ceiling
-    optional int64 init_capacity_per_rank = 2;    // initial alloc
-    optional int64 bucket_capacity = 3;            // bucket size (default 128)
-    optional float cache_load_factor = 4;         // HBM share in HYBRID / cache size in CACHING
+    int64 max_capacity = 1;                       // per-rank 行上限
+    optional int64 init_capacity_per_rank = 2;    // 初始分配
+    optional int64 bucket_capacity = 3;            // 桶大小（默认 128）
+    optional float cache_load_factor = 4;         // HYBRID 中的 HBM 份额 / CACHING 中的缓存大小
     optional DynamicEmbInitializerArgs initializer_args = 5;
     optional DynamicEmbInitializerArgs eval_initializer_args = 6;
     optional string score_strategy = 7;           // STEP / TIMESTAMP / CUSTOMIZED
@@ -155,18 +155,18 @@ message FrequencyAdmissionStrategy {
 }
 ```
 
-Key fields:
-- `max_capacity` — per-rank hard cap on row count. Unlike FBGEMM this is a **storage limit**, not a key range.
-- `cache_load_factor` — see storage mode table above.
-- `frequency_admission_strategy` — skip inserting a key into the table until it has been seen ≥ `threshold` times (saves memory for one-hit-wonders).
+关键字段：
+- `max_capacity` — per-rank 行数的硬上限。与 FBGEMM 不同，这是**存储限制**，不是 key 范围。
+- `cache_load_factor` — 见上表中的存储模式。
+- `frequency_admission_strategy` — 在 key 被看到 ≥ `threshold` 次之前跳过插入表中（为一次性访客节省内存）。
 
-## NVIDIA Upstream: Building Blocks
+## NVIDIA 上游：构建块
 
-### Package Layout
+### 包布局
 
 ```
 external/recsys-examples/corelib/dynamicemb/
-├── setup.py                                # CUDAExtension build (Bazel/CMake)
+├── setup.py                                # CUDAExtension 构建 (Bazel/CMake)
 ├── dynamicemb/
 │   ├── __init__.py                         # public API
 │   ├── dynamicemb_config.py                # DynamicEmbTableOptions, enums
@@ -198,32 +198,32 @@ external/recsys-examples/corelib/dynamicemb/
 │   └── utils.py                             # torch_to_dyn_emb
 ```
 
-### Core Types
+### 核心类型
 
-**`DynamicEmbTableOptions`** ([`dynamicemb_config.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/dynamicemb_config.py)) — per-table configuration dataclass containing:
+**`DynamicEmbTableOptions`**（[`dynamicemb_config.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/dynamicemb_config.py)）— per-table 配置 dataclass，包含：
 
-| Field | Purpose |
+| 字段 | 用途 |
 |---|---|
-| `max_capacity` | per-rank row ceiling |
-| `init_capacity` | initial allocation (clamped to `max_capacity`) |
-| `bucket_capacity` | hash table bucket size (default 128, aligned to 16) |
-| `global_hbm_for_values` | HBM budget for values, divided by world_size → `local_hbm_for_values` |
-| `local_hbm_for_values` | per-rank HBM budget (filled by planner) |
-| `initializer_args` | train-time init (UNIFORM/NORMAL/CONSTANT/...) |
-| `eval_initializer_args` | eval-time init (typically CONSTANT=0) |
+| `max_capacity` | per-rank 行上限 |
+| `init_capacity` | 初始分配（被 clamp 到 `max_capacity`） |
+| `bucket_capacity` | 哈希表桶大小（默认 128，按 16 对齐） |
+| `global_hbm_for_values` | values 的 HBM 预算，除以 world_size → `local_hbm_for_values` |
+| `local_hbm_for_values` | per-rank HBM 预算（由 planner 填充） |
+| `initializer_args` | 训练时初始化（UNIFORM/NORMAL/CONSTANT/...） |
+| `eval_initializer_args` | 评估时初始化（通常为 CONSTANT=0） |
 | `score_strategy` | STEP / TIMESTAMP / CUSTOMIZED |
 | `evict_strategy` | LRU / LFU / EPOCH_LRU / EPOCH_LFU / CUSTOMIZED |
-| `admit_strategy` | optional `FrequencyAdmissionStrategy` |
-| `admission_counter` | optional `KVCounter` for admission |
-| `caching` | `False` = HYBRID, `True` = CACHING |
-| `dist_type` | `"roundrobin"` (only one supported currently) |
-| `index_type` | `torch.int64` (default) |
-| `embedding_dtype` | `torch.float32` (default) |
-| `training` | set by planner; presence triggers optimizer state |
-| `dim` | embedding dim (filled by planner) |
-| `check_mode` | `DynamicEmbCheckMode.ERROR / WARNING / IGNORE` for insertion failures |
+| `admit_strategy` | 可选 `FrequencyAdmissionStrategy` |
+| `admission_counter` | 用于 admission 的可选 `KVCounter` |
+| `caching` | `False` = HYBRID，`True` = CACHING |
+| `dist_type` | `"roundrobin"`（目前唯一支持的） |
+| `index_type` | `torch.int64`（默认） |
+| `embedding_dtype` | `torch.float32`（默认） |
+| `training` | 由 planner 设置；存在时触发 optimizer 状态 |
+| `dim` | 嵌入维度（由 planner 填充） |
+| `check_mode` | `DynamicEmbCheckMode.ERROR / WARNING / IGNORE` 用于插入失败 |
 
-**`Storage` and `Cache`** ([`types.py:150`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/types.py#L150)) — abstract base classes for the three storage modes:
+**`Storage` 和 `Cache`**（[`types.py:150`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/types.py#L150)）— 三种存储模式的抽象基类：
 
 ```python
 class Storage(abc.ABC):
@@ -237,64 +237,64 @@ class Storage(abc.ABC):
     def export_keys_values(self, device, batch_size, table_id): ...
 ```
 
-The two concrete backends (`DynamicEmbStorage`, `HybridStorage`, `DynamicEmbCache`) live in the C++/CUDA extension `dynamicemb_extensions`, built via `setup.py`.
+两个具体后端（`DynamicEmbStorage`、`HybridStorage`、`DynamicEmbCache`）位于 C++/CUDA 扩展 `dynamicemb_extensions` 中，通过 `setup.py` 构建。
 
 ### Sharders
 
-[`dynamicemb/shard/embeddingbag.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/shard/embeddingbag.py) and `embedding.py` provide `DynamicEmbeddingBagCollectionSharder` / `DynamicEmbeddingCollectionSharder`. These register `DynamicEmbKernel` (the value `"DynamicEmb"`) as a `customized_compute_kernel` for `EmbeddingComputeKernel.CUSTOMIZED_KERNEL`.
+[`dynamicemb/shard/embeddingbag.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/shard/embeddingbag.py) 和 `embedding.py` 提供 `DynamicEmbeddingBagCollectionSharder` / `DynamicEmbeddingCollectionSharder`。它们将 `DynamicEmbKernel`（值 `"DynamicEmb"`）注册为 `EmbeddingComputeKernel.CUSTOMIZED_KERNEL` 的 `customized_compute_kernel`。
 
 ### Planner
 
-[`dynamicemb/planner/planner.py:213`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/planner/planner.py#L213) — `DynamicEmbeddingShardingPlanner`:
+[`dynamicemb/planner/planner.py:213`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/planner/planner.py#L213) — `DynamicEmbeddingShardingPlanner`：
 
 ```python
 class DynamicEmbeddingShardingPlanner:
     def __init__(self, eb_configs, topology=None, batch_size=None, ...,
                  constraints=None, debug=True):
         _prepare_dynemb_table_options(constraints, eb_configs)
-        # split into dyn_emb + torchrec constraints
-        # build self._torchrec_planner = EmbeddingShardingPlanner(...)
-        # build self._dyn_emb_plan: name -> DynamicEmbParameterSharding
-        #   (each: ROW_WISE sharding, EnumerableShardingSpec across ranks,
+        # 拆分为 dyn_emb + torchrec 约束
+        # 构建 self._torchrec_planner = EmbeddingShardingPlanner(...)
+        # 构建 self._dyn_emb_plan: name -> DynamicEmbParameterSharding
+        #   (每个：ROW_WISE 分片，跨 rank 的 EnumerableShardingSpec，
         #    compute_kernel=CUSTOMIZED_KERNEL, customized_compute_kernel=DynamicEmb)
 
     def collective_plan(self, module, sharders, pg=...):
         torchrec_plan = self._torchrec_planner.collective_plan(module, sharders, pg)
-        # overlay dyn_emb plans onto matching table names
+        # 将 dyn_emb 计划覆盖到匹配的表名上
         return torchrec_plan
 ```
 
-`DynamicEmbParameterSharding` ([`planner.py:81`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/planner/planner.py#L81)) extends `ParameterSharding` with `compute_kernel=CUSTOMIZED_KERNEL`, `customized_compute_kernel=DynamicEmb`, `dist_type="roundrobin"`, and the `dynamicemb_options` instance.
+`DynamicEmbParameterSharding`（[`planner.py:81`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/planner/planner.py#L81)）扩展了 `ParameterSharding`，增加了 `compute_kernel=CUSTOMIZED_KERNEL`、`customized_compute_kernel=DynamicEmb`、`dist_type="roundrobin"`，以及 `dynamicemb_options` 实例。
 
-`pop_additional_fused_params()` ([`planner.py:108`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/planner/planner.py#L108)) strips DynamicEmb-only keys from `fused_params` before they reach `BatchedDynamicEmbeddingTablesV2`.
+`pop_additional_fused_params()`（[`planner.py:108`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/planner/planner.py#L108)）在 fused params 到达 `BatchedDynamicEmbeddingTablesV2` 之前，从中剥离 DynamicEmb 专有的 key。
 
 ### Checkpoint Dump/Load
 
-[`dynamicemb/dump_load.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/dump_load.py):
+[`dynamicemb/dump_load.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/dump_load.py)：
 
-- `find_sharded_modules(model)` — DFS for `ShardedEmbeddingCollection` / `ShardedEmbeddingBagCollection`
-- `get_dynamic_emb_module(model)` — DFS for `BatchedDynamicEmbeddingTablesV2` (walks through private `_lookups` / `_emb_modules` / `_emb_module` attrs that `nn.Module.children()` won't discover)
-- `DynamicEmbDump(path, model, table_names, optim, counter, pg, allow_overwrite)` — per-rank dump to `path/<collection_path>/<table_name>.{keys,values,opt,counter,sizes}` binary files
-- `DynamicEmbLoad(path, model, table_names, optim, counter, pg)` — reverse
+- `find_sharded_modules(model)` — DFS 查找 `ShardedEmbeddingCollection` / `ShardedEmbeddingBagCollection`
+- `get_dynamic_emb_module(model)` — DFS 查找 `BatchedDynamicEmbeddingTablesV2`（遍历 `nn.Module.children()` 不会发现的私有 `_lookups` / `_emb_modules` / `_emb_module` 属性）
+- `DynamicEmbDump(path, model, table_names, optim, counter, pg, allow_overwrite)` — per-rank dump 到 `path/<collection_path>/<table_name>.{keys,values,opt,counter,sizes}` 二进制文件
+- `DynamicEmbLoad(path, model, table_names, optim, counter, pg)` — 反向
 
-Currently supports only **row-wise sharding**. TODO comments at `dump_load.py:97-102` and `:205-210` flag this and the all-or-nothing optimizer dump.
+目前仅支持 **row-wise 分片**。`dump_load.py:97-102` 和 `:205-210` 处的 TODO 注释标记了这一点和全有或全无的 optimizer dump。
 
-## TorchEasyRec Integration
+## TorchEasyRec 集成
 
-The integration is small — most of the heavy lifting is in upstream `dynamicemb`. TorchEasyRec adds:
+集成规模很小——大部分繁重的工作在上游 `dynamicemb` 中。TorchEasyRec 添加了：
 
-1. **Pluggable install** — `has_dynamicemb` flag (dynamicemb_util.py:134-157)
-2. **Constraints from protobuf** — `build_dynamicemb_constraints()` (dynamicemb_util.py:216-307)
-3. **Planner monkey-patches** — `to_sharding_plan` and `HardwarePerfConfig.get_device_bw` overrides (dynamicemb_util.py:395-531)
-4. **Variant emission** — `_emit_dynamicemb_variants()` expanding each option into HYBRID + CACHING × load_factors (plan_util.py:887-916)
-5. **Storage estimator** — `dynamicemb_calculate_shard_storages()` (dynamicemb_util.py:637-775)
-6. **Checkpoints** — wired into `restore_model()` / `save_model()` (checkpoint_util.py:705-722, 743-751)
-7. **Range-check bypass** — `_validate_feature_range_with_dynamicemb` skips TorchRec's key range check (dynamicemb_util.py:777-793)
-8. **Tools** — `zch_to_dynamicemb_convert.py` (migrate from ZCH-based tables), `create_dynamicemb_init_ckpt.py` (cold-start from dense init)
+1. **可插拔安装** — `has_dynamicemb` 标志（`dynamicemb_util.py:134-157`）
+2. **从 protobuf 构建约束** — `build_dynamicemb_constraints()`（`dynamicemb_util.py:216-307`）
+3. **Planner monkey-patch** — `to_sharding_plan` 和 `HardwarePerfConfig.get_device_bw` 覆盖（`dynamicemb_util.py:395-531`）
+4. **变体发射** — `_emit_dynamicemb_variants()` 将每个选项扩展为 HYBRID + CACHING × load_factors（`plan_util.py:887-916`）
+5. **存储估算器** — `dynamicemb_calculate_shard_storages()`（`dynamicemb_util.py:637-775`）
+6. **Checkpoint** — 接入 `restore_model()` / `save_model()`（`checkpoint_util.py:705-722, 743-751`）
+7. **范围检查绕过** — `_validate_feature_range_with_dynamicemb` 跳过 TorchRec 的 key 范围检查（`dynamicemb_util.py:777-793`）
+8. **工具** — `zch_to_dynamicemb_convert.py`（从基于 ZCH 的表迁移）、`create_dynamicemb_init_ckpt.py`（从稠密 init 冷启动）
 
-### Install Detection
+### 安装检测
 
-[`dynamicemb_util.py:134-157`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L134-L157):
+[`dynamicemb_util.py:134-157`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L134-L157)：
 
 ```python
 has_dynamicemb = False
@@ -308,23 +308,23 @@ except Exception:
     pass
 ```
 
-All subsequent patching is guarded by `if has_dynamicemb:`.
+所有后续 patch 都受 `if has_dynamicemb:` 保护。
 
-### Per-Feature `use_dynamicemb` Flag
+### Per-Feature `use_dynamicemb` 标志
 
-[`features/feature.py:631`](../torcheasyrec/tzrec/features/feature.py#L631) and `:657` — when a feature's `embedding_config` is a `DynamicEmbedding`, the generated `BaseEmbeddingConfig` / `EmbeddingBagConfig` is tagged:
+[`features/feature.py:631`](../torcheasyrec/tzrec/features/feature.py#L631) 和 `:657` — 当特征的 `embedding_config` 是 `DynamicEmbedding` 时，生成的 `BaseEmbeddingConfig` / `EmbeddingBagConfig` 被标记：
 
 ```python
 emb_bag_config.use_dynamicemb = hasattr(self.embedding_config, "dynamicemb_options")
-# or
+# 或
 emb_config.use_dynamicemb = hasattr(self.embedding_config, "dynamicemb_options")
 ```
 
-This flag flows through constraints → planner → sharder.
+此标志流经 constraints → planner → sharder。
 
-### Building Constraints from Protobuf
+### 从 Protobuf 构建约束
 
-[`dynamicemb_util.py:216-307`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L216-L307) — `build_dynamicemb_constraints()`:
+[`dynamicemb_util.py:216-307`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L216-L307) — `build_dynamicemb_constraints()`：
 
 ```python
 def build_dynamicemb_constraints(
@@ -357,20 +357,20 @@ def build_dynamicemb_constraints(
 
     return DynamicEmbParameterConstraints(
         use_dynamicemb=True,
-        sharding_types=[ShardingType.ROW_WISE.value],   # only row-wise supported
+        sharding_types=[ShardingType.ROW_WISE.value],   # 仅支持 row-wise
         compute_kernels=[EmbeddingComputeKernel.CUSTOMIZED_KERNEL.value],
         dynamicemb_options=dynamicemb_options,
         **constraints_kwargs,
     )
 ```
 
-### Planner Monkey-Patches
+### Planner Monkey-Patch
 
-Four patches make the TorchRec planner DynamicEmb-aware. All are applied once at import time (guarded by `if has_dynamicemb:`).
+四个 patch 使 TorchRec planner 对 DynamicEmb 感知。所有 patch 在导入时应用一次（受 `if has_dynamicemb:` 保护）。
 
-#### 1. Compute Kernel Enumeration (EBC + EC)
+#### 1. Compute Kernel 枚举（EBC + EC）
 
-[`dynamicemb_util.py:313-340`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L313-L340):
+[`dynamicemb_util.py:313-340`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L313-L340)：
 
 ```python
 enumerators.GUARDED_COMPUTE_KERNELS.add(EmbeddingComputeKernel.CUSTOMIZED_KERNEL)
@@ -385,20 +385,20 @@ DynamicEmbeddingBagCollectionSharder.compute_kernels = _ebc_compute_kernels
 DynamicEmbeddingCollectionSharder.compute_kernels = _ec_compute_kernels
 ```
 
-Without this, the TorchRec enumerator never offers `CUSTOMIZED_KERNEL` as a candidate compute kernel.
+没有这个，TorchRec enumerator 永远不会提供 `CUSTOMIZED_KERNEL` 作为候选 compute kernel。
 
-#### 2. Customized Sharding Plan Emission
+#### 2. 定制 Sharding Plan 发射
 
-[`dynamicemb_util.py:395-500`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L395-L500) — overrides `planners.to_sharding_plan`:
+[`dynamicemb_util.py:395-500`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L395-L500) — 覆盖 `planners.to_sharding_plan`：
 
 ```python
 def _to_sharding_plan(sharding_options, topology):
     plan = {}
     for sharding_option in sharding_options:
         shards = sharding_option.shards
-        # ... build EnumerableShardingSpec from shards
+        # ... 从 shards 构建 EnumerableShardingSpec
         if sharding_option.use_dynamicemb:
-            # compute local_hbm_for_values from the actual shard layout
+            # 从实际 shard 布局计算 local_hbm_for_values
             dynamicemb_options.local_hbm_for_values = (
                 _calculate_dynamicemb_table_storage_specific_size(
                     shards[0].size, tensor.element_size(),
@@ -408,9 +408,9 @@ def _to_sharding_plan(sharding_options, topology):
                     bucket_capacity=dynamicemb_options.bucket_capacity,
                 )
             )
-            # fill in dim / max_capacity / embedding_dtype / index_type
-            # (after NVIDIA recsys-examples PR #343 these are no longer
-            # auto-populated by upstream; we set them here)
+            # 填充 dim / max_capacity / embedding_dtype / index_type
+            # (在 NVIDIA recsys-examples PR #343 之后这些不再由上游自动填充；
+            # 我们在这里设置)
             dynamicemb_options.dim = shards[0].size[1]
             dynamicemb_options.max_capacity = shards[0].size[0]
             if dynamicemb_options.embedding_dtype is None:
@@ -429,16 +429,16 @@ def _to_sharding_plan(sharding_options, topology):
             )
             _log_dynamicemb_table_plan(...)
         else:
-            # default path: standard ParameterSharding
+            # 默认路径：标准 ParameterSharding
             module_plan[name] = ParameterSharding(...)
     return ShardingPlan(plan)
 
 planners.to_sharding_plan = _to_sharding_plan
 ```
 
-#### 3. Bandwidth Perf Model Override
+#### 3. 带宽性能模型覆盖
 
-[`dynamicemb_util.py:502-531`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L502-L531):
+[`dynamicemb_util.py:502-531`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L502-L531)：
 
 ```python
 def _customized_kernel_aware_get_device_bw(
@@ -448,29 +448,27 @@ def _customized_kernel_aware_get_device_bw(
 ):
     if compute_kernel == EmbeddingComputeKernel.CUSTOMIZED_KERNEL.value:
         cr = caching_ratio if caching_ratio is not None else 0.0
-        # (cached portion * hbm + spill portion * hbm->ddr) / 10
-        # (the /10 is a calibration factor — see comment in source)
+        # (cached 比例 * hbm + spill 比例 * hbm->ddr) / 10
+        # (/10 是校准因子——参见源代码中的注释)
         return (cr * hbm_mem_bw + (1 - cr) * hbm_to_ddr_mem_bw) / 10
     return _orig_hw_perf_config_get_device_bw(...)
 
 HardwarePerfConfig.get_device_bw = _customized_kernel_aware_get_device_bw
 ```
 
-This makes the TorchRec perf model charge DynamicEmb the right bandwidth — HBM for the cached portion, HBM→DDR for the spill portion.
+这使得 TorchRec 性能模型为 DynamicEmb 收取正确的带宽——cached 部分用 HBM，spill 部分用 HBM→DDR。
 
 #### 4. Perf Context Builder
 
-[`dynamicemb_util.py:533-591`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L533-L591):
+[`dynamicemb_util.py:533-591`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L533-L591)：
 
 ```python
 def _dynamicemb_aware_build_shard_perf_contexts(cls, config, shard_sizes, sharding_option,
                                                 topology, constraints, sharder, *args, **kwargs):
-    """Inject the empirical x_eff into the perf estimator for both modes.
+    """将经验 x_eff 注入到两种模式的性能估算器中。
 
-    Temporarily replace sharding_option.cache_params with a clone whose
-    load_factor is the empirically-fitted x_eff for the (mode, cache_load_factor)
-    combination. Restored before returning so the storage estimator still sees
-    the un-boosted ratio.
+    临时用经验拟合的 x_eff 的克隆替换 sharding_option.cache_params 的 load_factor，
+    适配 (mode, cache_load_factor) 组合。返回前恢复，以便存储估算器仍能看到未提升的比率。
     """
     dynamicemb_options = getattr(sharding_option, "dynamicemb_options", None)
     original_cache_params = sharding_option.cache_params
@@ -493,9 +491,9 @@ def _dynamicemb_aware_build_shard_perf_contexts(cls, config, shard_sizes, shardi
 ShardPerfContext.build_shard_perf_contexts = classmethod(_dynamicemb_aware_build_shard_perf_contexts)
 ```
 
-### Storage Estimation
+### 存储估算
 
-`_calculate_dynamicemb_table_storage_specific_size` ([`dynamicemb_util.py:342-393`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L342-L393)) — per-shard HBM/DDR byte budget:
+`_calculate_dynamicemb_table_storage_specific_size`（[`dynamicemb_util.py:342-393`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L342-L393)）— per-shard HBM/DDR 字节预算：
 
 ```
 value_bytes_per_row = round_up16(dim * (1 + opt_mult) * element)
@@ -507,23 +505,23 @@ HBM budget = cache_ratio * total_value_memory                 # values
            + num_buckets * bucket_header<4B>                  # per-bucket
 
 DDR budget = HYBRID  (caching=False): (1 - cache_ratio) * total_value_memory
-             CACHING (caching=True):  total_value_memory      # full backing
+             CACHING (caching=True):  total_value_memory      # 完整后备
 ```
 
-`dynamicemb_calculate_shard_storages` ([`dynamicemb_util.py:637-775`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L637-L775)) is the drop-in replacement for the TorchRec `shard_estimators.calculate_shard_storages`. It computes the HBM / DDR breakdown above, then adds the pipeline I/O cost (`shard_estimators.calculate_pipeline_io_cost(...)`).
+`dynamicemb_calculate_shard_storages`（[`dynamicemb_util.py:637-775`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L637-L775)）是 TorchRec `shard_estimators.calculate_shard_storages` 的直接替代品。它计算上述 HBM / DDR 分解，然后加上 pipeline I/O 成本（`shard_estimators.calculate_pipeline_io_cost(...)`）。
 
-### Variant Emission
+### 变体发射
 
-[`plan_util.py:887-916`](../torcheasyrec/tzrec/utils/plan_util.py#L887-L916) — `_emit_dynamicemb_variants`:
+[`plan_util.py:887-916`](../torcheasyrec/tzrec/utils/plan_util.py#L887-L916) — `_emit_dynamicemb_variants`：
 
 ```python
 def _emit_dynamicemb_variants(base_option: ShardingOption) -> List[ShardingOption]:
-    """Expand a dynamicemb ShardingOption into HYBRID + CACHING variants.
+    """将 dynamicemb ShardingOption 扩展为 HYBRID + CACHING 变体。
 
-    Sweeps both placement modes (caching=False and caching=True) and,
-    when base_option.cache_params is unset, ten cache_load_factor values
-    (0.1, 0.2, ..., 1.0). The downstream 2D DP proposer picks per table the
-    best (mode, ratio) that fits both HBM and host topology budgets.
+    扫描两种放置模式 (caching=False 和 caching=True)，并且
+    当 base_option.cache_params 未设置时，扫描十个 cache_load_factor 值
+    (0.1, 0.2, ..., 1.0)。下游 2D DP proposer 为每个表选择
+    同时满足 HBM 和主机拓扑预算的 (mode, ratio)。
     """
     if base_option.cache_params is None:
         load_factors = [(i + 1) / 10 for i in range(10)]
@@ -541,14 +539,14 @@ def _emit_dynamicemb_variants(base_option: ShardingOption) -> List[ShardingOptio
     return variants
 ```
 
-When user specifies `cache_load_factor` explicitly, the sweep collapses to a single point. Otherwise the proposer sees up to 20 variants per dynamicemb table (2 modes × 10 ratios) and picks the cheapest fitting one.
+当用户显式指定 `cache_load_factor` 时，扫描坍缩为单点。否则 proposer 看到每个 dynamicemb 表多达 20 个变体（2 模式 × 10 比率）并选择最便宜的适合变体。
 
-### Checkpoint Integration
+### Checkpoint 集成
 
-[`checkpoint_util.py:705-722, 743-751`](../torcheasyrec/tzrec/utils/checkpoint_util.py#L705-L722):
+[`checkpoint_util.py:705-722, 743-751`](../torcheasyrec/tzrec/utils/checkpoint_util.py#L705-L722)：
 
 ```python
-# restore_model(): after standard load_state_dict
+# restore_model(): 标准 load_state_dict 之后
 if has_dynamicemb:
     from dynamicemb.dump_load import DynamicEmbLoad
     dynamicemb_path = os.path.join(checkpoint_dir, "dynamicemb")
@@ -560,7 +558,7 @@ if has_dynamicemb:
             counter=True,
         )
 
-# save_model(): after standard state_dict save
+# save_model(): 标准 state_dict 保存之后
 if has_dynamicemb:
     from dynamicemb.dump_load import DynamicEmbDump
     DynamicEmbDump(
@@ -571,18 +569,18 @@ if has_dynamicemb:
     )
 ```
 
-DynamicEmb checkpoints are stored separately at `checkpoint_dir/dynamicemb/<collection_path>/<table_name>.{keys,values,opt,counter,sizes}` and reloaded by the per-rank DFS walk in upstream `dump_load.find_sharded_modules()`.
+DynamicEmb checkpoint 单独存储在 `checkpoint_dir/dynamicemb/<collection_path>/<table_name>.{keys,values,opt,counter,sizes}`，并由上游 `dump_load.find_sharded_modules()` 中的 per-rank DFS 遍历重新加载。
 
-### Range-Check Bypass
+### 范围检查绕过
 
-[`dynamicemb_util.py:777-793`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L777-L793):
+[`dynamicemb_util.py:777-793`](../torcheasyrec/tzrec/utils/dynamicemb_util.py#L777-L793)：
 
 ```python
 def _validate_feature_range_with_dynamicemb(kjt, configs):
-    """Skip range check for dynamicemb features.
+    """跳过 dynamicemb 特征的范围检查。
 
-    DynamicEmb uses hash tables that accept arbitrary uint64 keys.
-    max_capacity is a storage limit, not a valid key range.
+    DynamicEmb 使用接受任意 uint64 key 的哈希表。
+    max_capacity 是存储限制，不是有效 key 范围。
     """
     filtered_configs = [c for c in configs if not getattr(c, "use_dynamicemb", False)]
     if not filtered_configs:
@@ -592,69 +590,69 @@ def _validate_feature_range_with_dynamicemb(kjt, configs):
 _jtv._validate_feature_range = _validate_feature_range_with_dynamicemb
 ```
 
-TorchRec normally rejects KJT inputs with key IDs ≥ `num_embeddings` (assumed to be a key range). DynamicEmb has no such constraint — keys are hashed into buckets of unbounded size up to `max_capacity`.
+TorchRec 通常拒绝 key ID ≥ `num_embeddings` 的 KJT 输入（假定为 key 范围）。DynamicEmb 没有这样的约束——key 被哈希到无界大小的桶中，最大为 `max_capacity`。
 
-## Migration Tools
+## 迁移工具
 
 ### `tools/dynamicemb/zch_to_dynamicemb_convert.py`
 
-Migrates a checkpoint from a ZCH-based (`ManagedCollisionEmbeddingBagCollection`) table to a DynamicEmb table. Reads the ZCH checkpoint, hashes the original IDs to a target `max_capacity` layout, and writes a `dynamicemb/` directory that `DynamicEmbLoad` can ingest.
+将 checkpoint 从基于 ZCH（`ManagedCollisionEmbeddingBagCollection`）的表迁移到 DynamicEmb 表。读取 ZCH checkpoint，将原始 ID 哈希到目标 `max_capacity` 布局，并写入 `DynamicEmbLoad` 可以摄取的 `dynamicemb/` 目录。
 
-Why this is needed: ZCH uses a fixed `max_id` collision module; DynamicEmb uses an open hash table. Different ID spaces → different checkpoints.
+为什么需要这个：ZCH 使用固定 `max_id` 碰撞模块；DynamicEmb 使用开放哈希表。不同的 ID 空间 → 不同的 checkpoint。
 
 ### `tools/dynamicemb/create_dynamicemb_init_ckpt.py`
 
-Cold-starts a DynamicEmb checkpoint from a dense FBGEMM init (e.g., a pre-trained EBC) by writing the initial keys + values in the on-disk format `DynamicEmbLoad` expects. Useful for warming up a new deployment without retraining from scratch.
+通过以 `DynamicEmbLoad` 期望的磁盘格式写入初始 keys + values，从稠密 FBGEMM 初始化（例如预训练的 EBC）冷启动 DynamicEmb checkpoint。用于在不完全重新训练的情况下预热新部署。
 
-## When to Use DynamicEmb (vs FBGEMM)
+## 何时使用 DynamicEmb（对比 FBGEMM）
 
-| Criterion | FBGEMM (EBC/EC) | DynamicEmb |
-|---|---|---|
-| Cardinality | bounded (≤ 10M usually) | unbounded |
-| Memory waste | high if sparse | only pays for what's hot |
-| Cold-start cost | none | one-hit wonders admitted at threshold |
-| Latency (hot path) | lowest (dense index) | higher (hash probe + possible spill) |
-| Exportable to RTP / TensorRT | yes (JIT script) | limited (hash kernel is custom) |
-| Checkpoint format | one big `state_dict` | per-rank binary + `state_dict` |
-| Operating mode | ROW_WISE / TABLE_WISE / COLUMN_WISE / TP / DP | ROW_WISE only |
+| 标准 | FBGEMM (EBC/EC) | DynamicEmb |
+|------|----------------|-----------|
+| 基数 | 有界（通常 ≤ 10M） | 无界 |
+| 内存浪费 | 稀疏时高 | 只为热数据付费 |
+| 冷启动成本 | 无 | 一次性访客在阈值处被接纳 |
+| 延迟（热路径） | 最低（稠密索引） | 较高（哈希探测 + 可能溢出） |
+| 可导出到 RTP / TensorRT | 是（JIT script） | 有限（哈希 kernel 是定制的） |
+| Checkpoint 格式 | 一个大 `state_dict` | per-rank 二进制 + `state_dict` |
+| 操作模式 | ROW_WISE / TABLE_WISE / COLUMN_WISE / TP / DP | 仅 ROW_WISE |
 
-Recommended:
-- **Frequent, hot IDs in a bounded space** → FBGEMM
-- **Long-tail, cold-start, unbounded space** → DynamicEmb
-- **Mixed** → per-feature choose, even within the same model
+推荐：
+- **频繁、热的 ID 在有界空间中** → FBGEMM
+- **长尾、冷启动、无界空间** → DynamicEmb
+- **混合** → per-feature 选择，甚至在同一模型内
 
-## Known Limitations
+## 已知限制
 
-- **Row-wise sharding only** — upstream TODO at `dump_load.py:97`, `:205` (and a comment in planner `planner.py:333`: `TODO:0 is we don't have column-wise sharding now`)
-- **All-or-nothing optimizer dump** — `DynamicEmbDump(optim=True)` dumps all opt state for the table (no per-param opt control)
-- **No FBGEMM-style `bounds_check_mode`** — DynamicEmb uses its own `DynamicEmbCheckMode` enum (ERROR/WARNING/IGNORE) for insertion failures, not TorchRec's
-- **No cross-table fusion in planner** — each table is enumerated independently, even if they could share storage (the table_fusion logic in `KeyedJaggedTensor` / `FeatureGroup` is not extended to DynamicEmb)
-- **Limited export compatibility** — the `BatchedDynamicEmbeddingTablesV2` CUDA kernel is not directly JIT-scriptable. For RTP/TRT export, features with `dynamicemb { }` typically need to fall back to FBGEMM at export time, or be exported with custom RTP hooks (the latter is work-in-progress and not the default path)
+- **仅 Row-wise 分片** — 上游 TODO 位于 `dump_load.py:97`、`:205`（以及 planner `planner.py:333` 中的注释：`TODO:0 is we don't have column-wise sharding now`）
+- **全有或全无的 optimizer dump** — `DynamicEmbDump(optim=True)` 为该表 dump 所有 opt 状态（无 per-param opt 控制）
+- **无 FBGEMM 风格的 `bounds_check_mode`** — DynamicEmb 使用自己的 `DynamicEmbCheckMode` 枚举（ERROR/WARNING/IGNORE）处理插入失败，而非 TorchRec 的
+- **Planner 中无跨表融合** — 每个表独立枚举，即使它们可以共享存储（`KeyedJaggedTensor` / `FeatureGroup` 中的 table_fusion 逻辑未扩展到 DynamicEmb）
+- **导出兼容性有限** — `BatchedDynamicEmbeddingTablesV2` CUDA kernel 不能直接 JIT script。对于 RTP/TRT 导出，带 `dynamicemb { }` 的特征通常需要在导出时回退到 FBGEMM，或使用自定义 RTP hook 导出（后者是进行中的工作，不是默认路径）
 
-## References
+## 参考资料
 
-### NVIDIA Upstream (submodule)
+### NVIDIA 上游（子模块）
 
-| File | Purpose |
+| 文件 | 用途 |
 |---|---|
-| [`external/recsys-examples/corelib/dynamiceb/dynamicemb/__init__.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/__init__.py) | Public API |
-| [`external/recsys-examples/corelib/dynamicemb/dynamicemb/dynamicemb_config.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/dynamicemb_config.py) | `DynamicEmbTableOptions`, enums |
-| [`external/recsys-examples/corelib/dynamicemb/dynamicemb/types.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/types.py) | `Storage`, `Cache` ABCs |
+| [`external/recsys-examples/corelib/dynamiceb/dynamicemb/__init__.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/__init__.py) | 公共 API |
+| [`external/recsys-examples/corelib/dynamicemb/dynamicemb/dynamicemb_config.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/dynamicemb_config.py) | `DynamicEmbTableOptions`、枚举 |
+| [`external/recsys-examples/corelib/dynamicemb/dynamicemb/types.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/types.py) | `Storage`、`Cache` ABC |
 | [`external/recsys-examples/corelib/dynamicemb/dynamicemb/planner/planner.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/planner/planner.py) | `DynamicEmbeddingShardingPlanner` |
 | [`external/recsys-examples/corelib/dynamicemb/dynamicemb/shard/embeddingbag.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/shard/embeddingbag.py) | `DynamicEmbeddingBagCollectionSharder` |
 | [`external/recsys-examples/corelib/dynamicemb/dynamicemb/shard/embedding.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/shard/embedding.py) | `DynamicEmbeddingCollectionSharder` |
 | [`external/recsys-examples/corelib/dynamicemb/dynamicemb/dump_load.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/dump_load.py) | `DynamicEmbDump` / `DynamicEmbLoad` |
-| [`external/recsys-examples/corelib/dynamicemb/dynamicemb/embedding_admission.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/embedding_admission.py) | `FrequencyAdmissionStrategy`, `KVCounter` |
-| [`external/recsys-examples/corelib/dynamicemb/dynamicemb/optimizer.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/optimizer.py) | sparse optim state |
+| [`external/recsys-examples/corelib/dynamicemb/dynamicemb/embedding_admission.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/embedding_admission.py) | `FrequencyAdmissionStrategy`、`KVCounter` |
+| [`external/recsys-examples/corelib/dynamicemb/dynamicemb/optimizer.py`](../external/recsys-examples/corelib/dynamicemb/dynamicemb/optimizer.py) | 稀疏 optim 状态 |
 
-### TorchEasyRec Integration
+### TorchEasyRec 集成
 
-| File | Purpose |
+| 文件 | 用途 |
 |---|---|
-| [`torcheasyrec/tzrec/utils/dynamicemb_util.py`](../torcheasyrec/tzrec/utils/dynamicemb_util.py) | planner hooks, constraints, storage estimator (794 lines) |
+| [`torcheasyrec/tzrec/utils/dynamicemb_util.py`](../torcheasyrec/tzrec/utils/dynamicemb_util.py) | planner hooks、constraints、存储估算器（794 行） |
 | [`torcheasyrec/tzrec/utils/plan_util.py:887-916`](../torcheasyrec/tzrec/utils/plan_util.py#L887-L916) | `_emit_dynamicemb_variants` |
-| [`torcheasyrec/tzrec/utils/checkpoint_util.py:705-751`](../torcheasyrec/tzrec/utils/checkpoint_util.py#L705-L751) | save/restore DynamicEmb checkpoints |
-| [`torcheasyrec/tzrec/features/feature.py:631,657`](../torcheasyrec/tzrec/features/feature.py#L631) | `use_dynamicemb` flag on embedding configs |
-| [`torcheasyrec/tzrec/protos/feature.proto`](../torcheasyrec/tzrec/protos/feature.proto) | `DynamicEmbedding` message |
-| [`torcheasyrec/tzrec/tools/dynamicemb/zch_to_dynamicemb_convert.py`](../torcheasyrec/tzrec/tools/dynamicemb/zch_to_dynamicemb_convert.py) | ZCH → DynamicEmb checkpoint migration |
-| [`torcheasyrec/tzrec/tools/dynamicemb/create_dynamicemb_init_ckpt.py`](../torcheasyrec/tzrec/tools/dynamicemb/create_dynamicemb_init_ckpt.py) | cold-start DynamicEmb from dense FBGEMM |
+| [`torcheasyrec/tzrec/utils/checkpoint_util.py:705-751`](../torcheasyrec/tzrec/utils/checkpoint_util.py#L705-L751) | save/restore DynamicEmb checkpoint |
+| [`torcheasyrec/tzrec/features/feature.py:631,657`](../torcheasyrec/tzrec/features/feature.py#L631) | 嵌入配置上的 `use_dynamicemb` 标志 |
+| [`torcheasyrec/tzrec/protos/feature.proto`](../torcheasyrec/tzrec/protos/feature.proto) | `DynamicEmbedding` 消息 |
+| [`torcheasyrec/tzrec/tools/dynamicemb/zch_to_dynamicemb_convert.py`](../torcheasyrec/tzrec/tools/dynamicemb/zch_to_dynamicemb_convert.py) | ZCH → DynamicEmb checkpoint 迁移 |
+| [`torcheasyrec/tzrec/tools/dynamicemb/create_dynamicemb_init_ckpt.py`](../torcheasyrec/tzrec/tools/dynamicemb/create_dynamicemb_init_ckpt.py) | 从稠密 FBGEMM 冷启动 DynamicEmb |

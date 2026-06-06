@@ -1,11 +1,11 @@
 ---
-title: Code Structure
+title: 代码结构
 nav_order: 4
 ---
 
-# Code Structure
+# 代码结构
 
-## Top-Level Layout
+## 顶层目录
 
 ```
 torcheasyrec/                  # Git submodule (pinned commit)
@@ -22,7 +22,7 @@ torcheasyrec/                  # Git submodule (pinned commit)
 └── README.md
 ```
 
-## Source Package (`tzrec/`)
+## 源码包（`tzrec/`）
 
 ```
 tzrec/
@@ -271,9 +271,9 @@ tzrec/
     └── rank_integration_test.py
 ```
 
-## Proto Config System
+## Proto 配置体系
 
-The protobuf definitions form a hierarchy:
+protobuf 定义形成层次结构：
 
 ```
 pipeline.proto: EasyRecConfig
@@ -292,16 +292,16 @@ pipeline.proto: EasyRecConfig
     └── sampler.proto: Sampler config
 ```
 
-Each proto is compiled to Python by `protoc` and imported via `tzrec.protos.*_pb2`.
+每个 proto 通过 `protoc` 编译为 Python，并由 `tzrec.protos.*_pb2` 导入。
 
-## Key Stats
+## 关键统计
 
-| Metric | Count |
-|--------|-------|
-| Python files | 295 |
-| Proto files | 20 |
-| Model implementations | 22+ |
-| Feature types | 12 |
-| Loss functions | 5 |
-| Metric types | 8 |
-| Custom ops | 15+ (Triton, CUDA, PyTorch) |
+| 指标 | 数量 |
+|------|------|
+| Python 文件 | 295 |
+| Proto 文件 | 20 |
+| 模型实现 | 22+ |
+| 特征类型 | 12 |
+| 损失函数 | 5 |
+| 指标类型 | 8 |
+| 自定义算子 | 15+（Triton、CUDA、PyTorch） |

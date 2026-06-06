@@ -1,21 +1,21 @@
 ---
-title: Feature System
+title: 特征系统
 nav_order: 8
 ---
 
-# Feature System
+# 特征系统
 
-## Overview
+## 概览
 
-TorchEasyRec's feature system handles the complete pipeline from raw input data → parsed tensors → embedding lookup. It supports 10+ feature types through a common `BaseFeature` interface.
+TorchEasyRec 的特征系统处理从原始输入数据到解析张量再到嵌入查找的完整管线。它通过通用的 `BaseFeature` 接口支持 10+ 特征类型。
 
 ```
 Raw Input (pyarrow table)
         │
         ▼
-   Feature.parse()  ─── FG_NONE: direct parsing
+   Feature.parse()  ─── FG_NONE: 直接解析
         │              ─── FG_NORMAL: pyfg handler
-        │              ─── FG_DAG: DAG-based FG
+        │              ─── FG_DAG: 基于 DAG 的 FG
         ▼
    ParsedData (SparseData / DenseData / SequenceSparseData / SequenceDenseData)
         │
@@ -33,53 +33,53 @@ Raw Input (pyarrow table)
 
 [`torcheasyrec/tzrec/features/feature.py`](../torcheasyrec/tzrec/features/feature.py#L380-L1149)
 
-`BaseFeature` is the abstract base for all feature types:
+`BaseFeature` 是所有特征类型的抽象基类：
 
 ```python
 class BaseFeature(object, metaclass=_meta_cls):
     def __init__(self, feature_config, fg_mode, fg_encoded_multival_sep,
                  is_sequence, sequence_name, ...):
         self.fg_mode = fg_mode      # FG_NONE, FG_NORMAL, FG_DAG, FG_BUCKETIZE
-        self._is_sparse = None      # True = categorical, False = numerical
-        self._is_sequence = False   # True = sequential feature
-        self._is_weighted = False   # True = weighted ID feature
-        self._data_group = BASE_DATA_GROUP  # or NEG_DATA_GROUP
+        self._is_sparse = None      # True = 类别型, False = 数值型
+        self._is_sequence = False   # True = 序列特征
+        self._is_weighted = False   # True = 加权 ID 特征
+        self._data_group = BASE_DATA_GROUP  # 或 NEG_DATA_GROUP
 
     def parse(self, input_data, is_training=False) -> ParsedData:
-        # FG-specific parsing logic
+        # FG 特定解析逻辑
     def fg_json(self) -> List[Dict[str, Any]]:
-        # Feature generation JSON config
+        # 特征生成 JSON 配置
     def _fg_json(self) -> List[Dict[str, Any]]:
-        # Subclass-specific FG config
+        # 子类特定的 FG 配置
 ```
 
-## Feature Types
+## 特征类型
 
 [`torcheasyrec/tzrec/protos/feature.proto`](../torcheasyrec/tzrec/protos/feature.proto)
 
-Each feature type has its own proto config and Python class:
+每种特征类型都有自己的 proto 配置和 Python 类：
 
-| Feature Type | Proto Config | Python Class | Description |
-|-------------|-------------|--------------|-------------|
-| IdFeature | `IdFeatureConfig` | `IdFeature` | Categorical (sparse) features with embedding |
-| RawFeature | `RawFeatureConfig` | `RawFeature` | Numerical (dense) features |
-| ComboFeature | `ComboFeatureConfig` | `ComboFeature` | Cross of multiple categorical features |
-| SequenceFeature | `SequenceFeature` | (container) | Groups features into sequences |
-| LookupFeature | `LookupFeatureConfig` | `LookupFeature` | Key-value lookup features |
-| ExprFeature | `ExprFeatureConfig` | `ExprFeature` | Expression-based features |
-| TokenizeFeature | `TokenizeFeatureConfig` | `TokenizeFeature` | Text tokenization |
-| MatchFeature | `MatchFeatureConfig` | `MatchFeature` | Retrieval match features |
-| CombineFeature | `CombineFeatureConfig` | `CombineFeature` | Feature combination |
-| BoolMaskFeature | `BoolMaskFeatureConfig` | `BoolMaskFeature` | Boolean masking |
-| OverlapFeature | `OverlapFeatureConfig` | `OverlapFeature` | Set overlap features |
-| KV Dot Product | (in config) | `KVDotProduct` | Key-value dot product |
+| 特征类型 | Proto 配置 | Python 类 | 说明 |
+|----------|-----------|-----------|------|
+| IdFeature | `IdFeatureConfig` | `IdFeature` | 类别型（稀疏）特征，带嵌入 |
+| RawFeature | `RawFeatureConfig` | `RawFeature` | 数值型（稠密）特征 |
+| ComboFeature | `ComboFeatureConfig` | `ComboFeature` | 多个类别特征的交叉 |
+| SequenceFeature | `SequenceFeature` | (容器) | 将特征分组为序列 |
+| LookupFeature | `LookupFeatureConfig` | `LookupFeature` | 键值查找特征 |
+| ExprFeature | `ExprFeatureConfig` | `ExprFeature` | 基于表达式的特征 |
+| TokenizeFeature | `TokenizeFeatureConfig` | `TokenizeFeature` | 文本分词 |
+| MatchFeature | `MatchFeatureConfig` | `MatchFeature` | 检索匹配特征 |
+| CombineFeature | `CombineFeatureConfig` | `CombineFeature` | 特征组合 |
+| BoolMaskFeature | `BoolMaskFeatureConfig` | `BoolMaskFeature` | 布尔遮罩 |
+| OverlapFeature | `OverlapFeatureConfig` | `OverlapFeature` | 集合重叠特征 |
+| KV Dot Product | (在 config 中) | `KVDotProduct` | 键值点积 |
 
-### IdFeature (Categorical)
+### IdFeature（类别型）
 
-The most common feature type. Each unique ID maps to an embedding vector.
+最常见的特征类型。每个唯一 ID 映射到一个嵌入向量。
 
 ```python
-# Config:
+# 配置:
 feature_config {
     id_feature {
         feature_name: "user_id"
@@ -89,38 +89,38 @@ feature_config {
 }
 ```
 
-Key properties:
-- `num_embeddings`: from `hash_bucket_size`, `vocab_list`, or `vocab_dict`
-- `embedding_dim`: output embedding dimension
-- `pooling`: SUM or MEAN (for multi-valued features)
-- Optional ZCH (Zero-Collision Hash) for dynamic embedding tables
+关键属性：
+- `num_embeddings`：来自 `hash_bucket_size`、`vocab_list` 或 `vocab_dict`
+- `embedding_dim`：输出嵌入维度
+- `pooling`：SUM 或 MEAN（针对多值特征）
+- 可选 ZCH（Zero-Collision Hash）用于动态嵌入表
 
-### RawFeature (Numerical)
+### RawFeature（数值型）
 
-For dense numerical values:
+用于稠密数值：
 
 ```python
-# Config:
+# 配置:
 feature_config {
     raw_feature {
         feature_name: "price"
-        value_dim: 1      # scalar, or >1 for vector
-        boundaries: [0, 10, 100, 1000]  # optional bucketization
+        value_dim: 1      # 标量，或 >1 表示向量
+        boundaries: [0, 10, 100, 1000]  # 可选分桶
     }
 }
 ```
 
-RawFeature can be:
-- Used directly as dense input
-- Bucketized into categorical IDs via `boundaries`
-- Embedded via `AutoDisEmbedding` (automatic discretization) or `MLPEmbedding`
+RawFeature 可被：
+- 直接用作稠密输入
+- 通过 `boundaries` 分桶为类别 ID
+- 通过 `AutoDisEmbedding`（自动离散化）或 `MLPEmbedding` 嵌入
 
 ### SequenceFeature
 
-Groups features into sequences:
+将特征分组为序列：
 
 ```python
-# Config:
+# 配置:
 feature_config {
     sequence_feature {
         sequence_name: "click_history"
@@ -134,33 +134,33 @@ feature_config {
 }
 ```
 
-Sequence features are automatically split into query (scalar) and sequence (list) parts by the `SequenceEmbeddingGroupImpl`.
+序列特征由 `SequenceEmbeddingGroupImpl` 自动分割为 query（标量）和 sequence（列表）部分。
 
-## Feature Generation (FG) Modes
+## 特征生成（FG）模式
 
-TorchEasyRec supports four FG modes:
+TorchEasyRec 支持四种 FG 模式：
 
 ### FG_NONE
 
-Input data is **pre-encoded**. Features are parsed directly from pyarrow arrays:
-- Sparse: `"1,2,3"` → `SparseData(values=[1,2,3], lengths=[3])`
-- Dense: `"0.5,1.2"` → `DenseData(values=[[0.5, 1.2]])`
+输入数据**已预编码**。特征直接从 pyarrow 数组解析：
+- Sparse：`"1,2,3"` → `SparseData(values=[1,2,3], lengths=[3])`
+- Dense：`"0.5,1.2"` → `DenseData(values=[[0.5, 1.2]])`
 
 ### FG_NORMAL
 
-Uses `pyfg` (Alibaba's feature generation library) to process features. Each feature's `_fg_json()` returns its FG config, and `pyfg.FgArrowHandler` processes the raw data.
+使用 `pyfg`（阿里巴巴的特征生成库）处理特征。每个特征的 `_fg_json()` 返回其 FG 配置，`pyfg.FgArrowHandler` 处理原始数据。
 
 ### FG_DAG
 
-DAG-based feature generation. Features can reference intermediate features via `"feature:..."` side inputs, forming a computation DAG. The DAG is detected in `create_features()` and a single `FgArrowHandler` is created for all DAG features.
+基于 DAG 的特征生成。特征可通过 `"feature:..."` 侧输入引用中间特征，形成计算 DAG。DAG 在 `create_features()` 中检测，并为所有 DAG 特征创建单个 `FgArrowHandler`。
 
 ### FG_BUCKETIZE
 
-Special mode for raw feature bucketization.
+用于 raw 特征分桶的特殊模式。
 
-## Feature Grouping
+## 特征分组
 
-Features are organized into **feature groups** in the model config:
+特征在模型配置中组织为**特征组**：
 
 ```protobuf
 feature_groups {
@@ -175,36 +175,36 @@ feature_groups {
 }
 ```
 
-The `EmbeddingGroup` creates separate embedding lookups per group. Groups can be:
-- **DEEP**: standard embedding + MLP
-- **WIDE**: wide (linear) model
-- **SEQUENCE**: sequential features with query/sequence split
-- **JAGGED_SEQUENCE**: variable-length sequences
+`EmbeddingGroup` 为每个组创建独立的嵌入查找。组可以是：
+- **DEEP**：标准嵌入 + MLP
+- **WIDE**：wide（线性）模型
+- **SEQUENCE**：带 query/sequence 分割的序列特征
+- **JAGGED_SEQUENCE**：可变长序列
 
-## Data Types
+## 数据类型
 
 [`torcheasyrec/tzrec/datasets/utils.py`](../torcheasyrec/tzrec/datasets/utils.py)
 
-| Python Class | Description | Used For |
-|-------------|-------------|----------|
-| `SparseData` | Multi-valued categorical | IdFeature |
-| `DenseData` | Fixed-dim numerical | RawFeature |
-| `SequenceSparseData` | Sequence of multi-valued categorical | SequenceFeature (sparse) |
-| `SequenceDenseData` | Sequence of fixed-dim numerical | SequenceFeature (dense) |
-| `Batch` | Complete batch container | All model input |
-| `KeyedJaggedTensor` | TorchRec sparse format | Embedding lookup |
-| `KeyedTensor` | TorchRec dense format | Dense feature passing |
+| Python 类 | 说明 | 用途 |
+|----------|------|------|
+| `SparseData` | 多值类别型 | IdFeature |
+| `DenseData` | 定维数值 | RawFeature |
+| `SequenceSparseData` | 多值类别型序列 | SequenceFeature（sparse） |
+| `SequenceDenseData` | 定维数值序列 | SequenceFeature（dense） |
+| `Batch` | 完整批容器 | 所有模型输入 |
+| `KeyedJaggedTensor` | TorchRec sparse 格式 | 嵌入查找 |
+| `KeyedTensor` | TorchRec dense 格式 | 稠密特征传递 |
 
-## Dense Embedding Types
+## Dense Embedding 类型
 
-For non-sparse features, TorchEasyRec provides specialized dense embedding:
+对于非稀疏特征，TorchEasyRec 提供专门的稠密嵌入：
 
 [`torcheasyrec/tzrec/modules/dense_embedding_collection.py`](../torcheasyrec/tzrec/modules/dense_embedding_collection.py)
 
-- **AutoDisEmbedding**: Automatic discretization + soft embedding
-- **MLPDenseEmbedding**: MLP-based embedding for dense features
+- **AutoDisEmbedding**：自动离散化 + 软嵌入
+- **MLPDenseEmbedding**：基于 MLP 的稠密特征嵌入
 
-## Feature Creation Pipeline
+## 特征创建管线
 
 [`torcheasyrec/tzrec/features/feature.py`](../torcheasyrec/tzrec/features/feature.py#L1151-L1230)
 
@@ -214,13 +214,13 @@ def create_features(feature_configs, fg_mode, neg_fields, ...):
     for feat_config in feature_configs:
         feat_type = feat_config.WhichOneof("feature")
         if feat_type == "sequence_feature":
-            # Expand sequence feature into sub-features
+            # 将 sequence feature 展开为子特征
             for sub_feature in sequence_feature.features:
                 features.append(BaseFeature.create_sub_feature(...))
         else:
             features.append(BaseFeature.create(feat_type, feat_config, ...))
 
-    # Detect DAG features and determine user/item side
+    # 检测 DAG 特征并确定 user/item 侧
     if has_dag:
         fg_handler = pyfg.FgArrowHandler(fg_json, 1)
         user_feats = fg_handler.user_features()
@@ -230,46 +230,43 @@ def create_features(feature_configs, fg_mode, neg_fields, ...):
     return features
 ```
 
-## Key Files
+## 关键文件
 
-| File | Purpose |
-|------|---------|
-| [`torcheasyrec/tzrec/features/feature.py`](../torcheasyrec/tzrec/features/feature.py) | `BaseFeature`, `create_features()`, parsing functions |
-| [`torcheasyrec/tzrec/features/id_feature.py`](../torcheasyrec/tzrec/features/id_feature.py) | IdFeature implementation |
-| [`torcheasyrec/tzrec/features/raw_feature.py`](../torcheasyrec/tzrec/features/raw_feature.py) | RawFeature implementation |
-| [`torcheasyrec/tzrec/protos/feature.proto`](../torcheasyrec/tzrec/protos/feature.proto) | All feature proto definitions |
-| [`torcheasyrec/tzrec/datasets/utils.py`](../torcheasyrec/tzrec/datasets/utils.py) | Data types (SparseData, Batch, etc.) |
-| [`torcheasyrec/tzrec/datasets/data_parser.py`](../torcheasyrec/tzrec/datasets/data_parser.py) | DataParser — raw → Batch |
-| [`torcheasyrec/tzrec/modules/dense_embedding_collection.py`](../torcheasyrec/tzrec/modules/dense_embedding_collection.py) | AutoDis, MLP dense embedding |
+| 文件 | 用途 |
+|------|------|
+| [`torcheasyrec/tzrec/features/feature.py`](../torcheasyrec/tzrec/features/feature.py) | `BaseFeature`、`create_features()`、解析函数 |
+| [`torcheasyrec/tzrec/features/id_feature.py`](../torcheasyrec/tzrec/features/id_feature.py) | IdFeature 实现 |
+| [`torcheasyrec/tzrec/features/raw_feature.py`](../torcheasyrec/tzrec/features/raw_feature.py) | RawFeature 实现 |
+| [`torcheasyrec/tzrec/protos/feature.proto`](../torcheasyrec/tzrec/protos/feature.proto) | 所有特征 proto 定义 |
+| [`torcheasyrec/tzrec/datasets/utils.py`](../torcheasyrec/tzrec/datasets/utils.py) | 数据类型（SparseData、Batch 等） |
+| [`torcheasyrec/tzrec/datasets/data_parser.py`](../torcheasyrec/tzrec/datasets/data_parser.py) | DataParser — 原始 → Batch |
+| [`torcheasyrec/tzrec/modules/dense_embedding_collection.py`](../torcheasyrec/tzrec/modules/dense_embedding_collection.py) | AutoDis、MLP 稠密嵌入 |
 
-## Appendix: Pure-Python FG Plan (Migration from pyfg)
+## 附录：纯 Python FG 计划（从 pyfg 迁移）
 
-**Context:** The standard `FG_NORMAL` / `FG_DAG` / `FG_BUCKETIZE` modes
-depend on **pyfg**, Alibaba's closed-source `libfg.so` (833 MB binary).
-This dependency is problematic for:
+**背景：** 标准 `FG_NORMAL` / `FG_DAG` / `FG_BUCKETIZE` 模式依赖于 **pyfg**——阿里巴巴闭源的 `libfg.so`（833 MB 二进制）。这种依赖在以下场景中存在问题：
 
-- Online serving (can't ship `libfg.so` everywhere)
-- Open-source deployment (need a permissive-license FG)
-- Some advanced features that pyfg doesn't support
+- 在线服务（无法在所有地方分发 `libfg.so`）
+- 开源部署（需要宽松许可的 FG）
+- pyfg 不支持的一些高级特性
 
-The planned solution is a **pure-Python FG** implementation that
-covers ~80% of use cases without the binary dependency.
+计划的解决方案是一个**纯 Python FG** 实现，在无二进制依赖的前提下覆盖 ~80% 的用例。
 
-### Coverage Plan
+### 覆盖计划
 
-| Tier | Feature Type | Core Logic | Priority |
-|------|--------------|------------|----------|
-| Core (P0) | `id_feature` | hash bucketize / vocab lookup | P0 |
-| Core (P0) | `raw_feature` | normalizer (log10 / zscore / minmax) | P0 |
-| Core (P0) | `combo_feature` | cartesian product | P0 |
-| Core (P1) | `lookup_feature` | KV map lookup | P1 |
-| Core (P1) | `expr_feature` | expression parse (`eval`) | P1 |
-| Advanced (P2) | `match_feature` | nested dict match | P2 |
-| Advanced (P2) | `overlap_feature` | string similarity | P2 |
-| Advanced (P2) | `sequence_feature` | sequence parse + combine | P2 |
-| Advanced (P2) | `custom_feature` | user-defined op | P2 |
+| 层级 | 特征类型 | 核心逻辑 | 优先级 |
+|------|---------|---------|--------|
+| 核心 (P0) | `id_feature` | 哈希分桶 / vocab 查找 | P0 |
+| 核心 (P0) | `raw_feature` | 归一化（log10 / zscore / minmax） | P0 |
+| 核心 (P0) | `combo_feature` | 笛卡尔积 | P0 |
+| 核心 (P1) | `lookup_feature` | KV map 查找 | P1 |
+| 核心 (P1) | `expr_feature` | 表达式解析 (`eval`) | P1 |
+| 高级 (P2) | `match_feature` | 嵌套 dict 匹配 | P2 |
+| 高级 (P2) | `overlap_feature` | 字符串相似度 | P2 |
+| 高级 (P2) | `sequence_feature` | 序列解析 + 组合 | P2 |
+| 高级 (P2) | `custom_feature` | 用户自定义 op | P2 |
 
-### Architecture
+### 架构
 
 ```
 +-------------------------------------------------------------+
@@ -298,7 +295,7 @@ covers ~80% of use cases without the binary dependency.
 +-------------------------------------------------------------+
 ```
 
-### New FG Mode
+### 新 FG 模式
 
 ```protobuf
 // tzrec/protos/data.proto
@@ -311,7 +308,7 @@ enum FgMode {
 }
 ```
 
-### DataParser Integration
+### DataParser 集成
 
 ```python
 # tzrec/datasets/data_parser.py
@@ -320,17 +317,17 @@ if self._fg_mode == FgMode.FG_PURE_PYTHON:
     self._fg_handler = PurePythonFGHandler(fg_json)
 ```
 
-### Risks and Mitigations
+### 风险与缓解
 
-| Risk | Impact | Mitigation |
-|------|--------|-----------|
-| Expression safety | `expr_feature` may execute arbitrary code | Sandbox `eval` |
-| Performance | Python may be slower than C++ | PyArrow vectorization + threading |
-| Compatibility | May differ from pyfg behavior | Regression test against pyfg |
+| 风险 | 影响 | 缓解 |
+|------|------|------|
+| 表达式安全性 | `expr_feature` 可能执行任意代码 | 沙箱化 `eval` |
+| 性能 | Python 可能比 C++ 慢 | PyArrow 向量化 + 多线程 |
+| 兼容性 | 可能与 pyfg 行为不同 | 针对 pyfg 的回归测试 |
 
-### Success Criteria
+### 成功标准
 
-- 80% coverage of real-world scenarios
-- 100% behavior parity with `FG_NONE` (no FG applied)
-- < 20% performance regression
-- Zero pyfg dependency
+- 覆盖 80% 真实场景
+- 与 `FG_NONE`（不应用 FG）行为 100% 一致
+- 性能回退 < 20%
+- 零 pyfg 依赖

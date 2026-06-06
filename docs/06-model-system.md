@@ -1,11 +1,11 @@
 ---
-title: Model System
+title: 模型系统
 nav_order: 7
 ---
 
-# Model System
+# 模型系统
 
-## Class Hierarchy
+## 类层级
 
 ```
 BaseModule (modules/utils.py)
@@ -21,7 +21,7 @@ BaseModule (modules/utils.py)
 
 [`torcheasyrec/tzrec/models/model.py`](../torcheasyrec/tzrec/models/model.py#L41-L228)
 
-Defines the contract every model must implement:
+定义每个模型必须实现的契约：
 
 ```python
 class BaseModel(BaseModule, metaclass=_meta_cls):
@@ -42,59 +42,59 @@ class BaseModel(BaseModule, metaclass=_meta_cls):
     def compute_metric(self) -> Dict[str, torch.Tensor]:   # Concrete
 ```
 
-Models are **auto-registered** via `get_register_class_meta()` which maintains `_MODEL_CLASS_MAP`. The `create_class()` classmethod looks up models by name, enabling the config-driven instantiation in `_create_model()`.
+模型通过 `get_register_class_meta()` **自动注册**，它维护 `_MODEL_CLASS_MAP`。`create_class()` classmethod 按名称查找模型，从而支持 `_create_model()` 中的配置驱动实例化。
 
 ### Wrappers
 
-BaseModel is used through several wrappers:
+BaseModel 通过几个 wrapper 使用：
 
-| Wrapper | Purpose | Key Behavior |
-|---------|---------|-------------|
-| [`TrainWrapper`](../torcheasyrec/tzrec/models/model.py#L235-L288) | Training | autocast, loss aggregation, Pareto MTL |
-| [`PredictWrapper`](../torcheasyrec/tzrec/models/model.py#L291-L340) | Evaluation | output column filtering, GPU→CPU |
-| [`ScriptWrapper`](../torcheasyrec/tzrec/models/model.py#L343-L393) | JIT export | adds DataParser for tensor→Batch |
-| [`CombinedModelWrapper`](../torcheasyrec/tzrec/models/model.py#L453-L512) | TRT export | splits sparse (scripted) + dense (AOTI) |
-| [`UnifiedAOTIModelWrapper`](../torcheasyrec/tzrec/models/model.py#L515-L554) | AOTI export | single AOTInductor model, thread-safe |
+| Wrapper | 用途 | 关键行为 |
+|---------|------|---------|
+| [`TrainWrapper`](../torcheasyrec/tzrec/models/model.py#L235-L288) | 训练 | autocast、损失聚合、Pareto MTL |
+| [`PredictWrapper`](../torcheasyrec/tzrec/models/model.py#L291-L340) | 评估 | 输出列过滤、GPU→CPU |
+| [`ScriptWrapper`](../torcheasyrec/tzrec/models/model.py#L343-L393) | JIT 导出 | 为 tensor→Batch 添加 DataParser |
+| [`CombinedModelWrapper`](../torcheasyrec/tzrec/models/model.py#L453-L512) | TRT 导出 | 切分稀疏（已 script）+ 稠密（AOTI） |
+| [`UnifiedAOTIModelWrapper`](../torcheasyrec/tzrec/models/model.py#L515-L554) | AOTI 导出 | 单一 AOTInductor 模型、线程安全 |
 
 ## RankModel
 
 [`torcheasyrec/tzrec/models/rank_model.py`](../torcheasyrec/tzrec/models/rank_model.py#L57-L523)
 
-Base class for ranking (scoring) models. Provides:
+排序（打分）模型的基类。提供：
 
-- **`init_input()`**: Creates `EmbeddingGroup` + optional variational dropout
-- **`build_input(batch)`**: Runs embedding lookup, applies variational dropout
-- **`_output_to_prediction()`**: Converts logits to predictions with sigmoid/softmax
-- **`_init_loss_impl()`**: Creates loss modules (BCE, Focal, SoftmaxCE, JRC, MSE)
-- **`_init_metric_impl()`**: Creates metric modules (AUC, GroupedAUC, XAUC, etc.)
-- **`_init_train_metric_impl()`**: Creates training metrics (DecayAUC, etc.)
+- **`init_input()`**：创建 `EmbeddingGroup` + 可选的 variational dropout
+- **`build_input(batch)`**：运行嵌入查找，应用 variational dropout
+- **`_output_to_prediction()`**：将 logits 转换为带 sigmoid/softmax 的 predictions
+- **`_init_loss_impl()`**：创建损失模块（BCE、Focal、SoftmaxCE、JRC、MSE）
+- **`_init_metric_impl()`**：创建指标模块（AUC、GroupedAUC、XAUC 等）
+- **`_init_train_metric_impl()`**：创建训练指标（DecayAUC 等）
 
-### Ranking Models
+### 排序模型
 
-| Model | File | Key Innovation |
-|-------|------|---------------|
-| DeepFM | [`deepfm.py`](../torcheasyrec/tzrec/models/deepfm.py) | FM + MLP parallel |
-| MultiTower | [`multi_tower.py`](../torcheasyrec/tzrec/models/multi_tower.py) | Multiple input towers |
-| MultiTowerDIN | [`multi_tower_din.py`](../torcheasyrec/tzrec/models/multi_tower_din.py) | DIN attention on sequences |
-| WideAndDeep | [`wide_and_deep.py`](../torcheasyrec/tzrec/models/wide_and_deep.py) | Wide (memorization) + Deep (generalization) |
-| DCN | [`dcn.py`](../torcheasyrec/tzrec/models/dcn.py) | Cross network for explicit feature interaction |
-| DCN-V2 | [`dcn_v2.py`](../torcheasyrec/tzrec/models/dcn_v2.py) | Improved cross network |
-| DLRM | [`dlrm.py`](../torcheasyrec/tzrec/models/dlrm.py) | Feature interaction + MLP |
-| MaskNet | [`masknet.py`](../torcheasyrec/tzrec/models/masknet.py) | Instance-guided mask |
-| xDeepFM | [`xdeepfm.py`](../torcheasyrec/tzrec/models/xdeepfm.py) | Compressed Interaction Network (CIN) |
-| WuKong | [`wukong.py`](../torcheasyrec/tzrec/models/wukong.py) | Dense scaling + high-order interactions |
-| RocketLaunching | [`rocket_launching.py`](../torcheasyrec/tzrec/models/rocket_launching.py) | Knowledge distillation |
+| 模型 | 文件 | 核心创新 |
+|------|------|----------|
+| DeepFM | [`deepfm.py`](../torcheasyrec/tzrec/models/deepfm.py) | FM + MLP 并行 |
+| MultiTower | [`multi_tower.py`](../torcheasyrec/tzrec/models/multi_tower.py) | 多输入塔 |
+| MultiTowerDIN | [`multi_tower_din.py`](../torcheasyrec/tzrec/models/multi_tower_din.py) | 序列上 DIN 注意力 |
+| WideAndDeep | [`wide_and_deep.py`](../torcheasyrec/tzrec/models/wide_and_deep.py) | Wide（记忆）+ Deep（泛化） |
+| DCN | [`dcn.py`](../torcheasyrec/tzrec/models/dcn.py) | 显式特征交叉的 Cross network |
+| DCN-V2 | [`dcn_v2.py`](../torcheasyrec/tzrec/models/dcn_v2.py) | 改进的 Cross network |
+| DLRM | [`dlrm.py`](../torcheasyrec/tzrec/models/dlrm.py) | 特征交互 + MLP |
+| MaskNet | [`masknet.py`](../torcheasyrec/tzrec/models/masknet.py) | 实例引导的 mask |
+| xDeepFM | [`xdeepfm.py`](../torcheasyrec/tzrec/models/xdeepfm.py) | 压缩交互网络（CIN） |
+| WuKong | [`wukong.py`](../torcheasyrec/tzrec/models/wukong.py) | 稠密扩展 + 高阶交互 |
+| RocketLaunching | [`rocket_launching.py`](../torcheasyrec/tzrec/models/rocket_launching.py) | 知识蒸馏 |
 
 ## MatchModel
 
 [`torcheasyrec/tzrec/models/match_model.py`](../torcheasyrec/tzrec/models/match_model.py#L246-L471)
 
-Base class for matching (candidate generation) models. Key concepts:
+匹配（候选生成）模型的基类。核心概念：
 
-- **Two-tower architecture**: user tower + item tower
-- **Similarity computation**: dot product / cosine similarity
-- **In-batch negative sampling**: optionally use other items in batch as negatives
-- **Loss**: always `softmax_cross_entropy`
+- **双塔架构**：user 塔 + item 塔
+- **相似度计算**：点积 / 余弦相似度
+- **批内负采样**：可选地将批内其他 item 作为负样本
+- **损失**：始终为 `softmax_cross_entropy`
 
 ```python
 class MatchModel(BaseModel):
@@ -105,39 +105,39 @@ class MatchModel(BaseModel):
             return _sim_with_sampler(user_emb, item_emb, hard_neg_indices)
 ```
 
-### Match Models
+### 匹配模型
 
-| Model | File | Key Innovation |
-|-------|------|---------------|
-| DSSM | [`dssm.py`](../torcheasyrec/tzrec/models/dssm.py) | Two-tower deep semantic matching |
-| DSSM-V2 | [`dssm_v2.py`](../torcheasyrec/tzrec/models/dssm_v2.py) | Improved DSSM |
-| DAT | [`dat.py`](../torcheasyrec/tzrec/models/dat.py) | Dual Augmented two-tower |
-| MIND | [`mind.py`](../torcheasyrec/tzrec/models/mind.py) | Multi-interest with dynamic routing |
-| TDM | [`tdm.py`](../torcheasyrec/tzrec/models/tdm.py) | Tree-based deep retrieval |
+| 模型 | 文件 | 核心创新 |
+|------|------|----------|
+| DSSM | [`dssm.py`](../torcheasyrec/tzrec/models/dssm.py) | 双塔深度语义匹配 |
+| DSSM-V2 | [`dssm_v2.py`](../torcheasyrec/tzrec/models/dssm_v2.py) | 改进版 DSSM |
+| DAT | [`dat.py`](../torcheasyrec/tzrec/models/dat.py) | 双增强双塔 |
+| MIND | [`mind.py`](../torcheasyrec/tzrec/models/mind.py) | 动态路由多兴趣 |
+| TDM | [`tdm.py`](../torcheasyrec/tzrec/models/tdm.py) | 基于树的深度检索 |
 
-## MultiTask Models
+## 多任务模型
 
 [`torcheasyrec/tzrec/models/multi_task_rank.py`](../torcheasyrec/tzrec/models/multi_task_rank.py)
 
-| Model | File | Key Innovation |
-|-------|------|---------------|
-| MMoE | [`mmoe.py`](../torcheasyrec/tzrec/models/mmoe.py) | Multi-gate Mixture-of-Experts |
-| PLE | [`ple.py`](../torcheasyrec/tzrec/models/ple.py) | Progressive Layered Extraction |
-| DBMTL | [`dbmtl.py`](../torcheasyrec/tzrec/models/dbmtl.py) | Deep Bayesian MTL |
-| PEPNet | [`pepnet.py`](../torcheasyrec/tzrec/models/pepnet.py) | Personalized Embedding & Parameter Net |
-| DC2VR | [`dc2vr.py`](../torcheasyrec/tzrec/models/dc2vr.py) | Deep Cross network for VR |
+| 模型 | 文件 | 核心创新 |
+|------|------|----------|
+| MMoE | [`mmoe.py`](../torcheasyrec/tzrec/models/mmoe.py) | 多门控 Mixture-of-Experts |
+| PLE | [`ple.py`](../torcheasyrec/tzrec/models/ple.py) | 渐进式分层提取 |
+| DBMTL | [`dbmtl.py`](../torcheasyrec/tzrec/models/dbmtl.py) | 深度贝叶斯多任务 |
+| PEPNet | [`pepnet.py`](../torcheasyrec/tzrec/models/pepnet.py) | 个性化 Embedding & Parameter Net |
+| DC2VR | [`dc2vr.py`](../torcheasyrec/tzrec/models/dc2vr.py) | DCN 网络用于 VR |
 
-## Generative Recommendation Models
+## 生成式推荐模型
 
-| Model | File | Key Innovation |
-|-------|------|---------------|
-| DLRM-HSTU | [`dlrm_hstu.py`](../torcheasyrec/tzrec/models/dlrm_hstu.py) | HSTU transducer for generative rec |
-| ULTRA-HSTU | [`ultra_hstu.py`](../torcheasyrec/tzrec/models/ultra_hstu.py) | Semi-local attention, attention truncation, MoT |
-| HSTU-Match | (in match_models) | HSTU-based two-tower retrieval |
+| 模型 | 文件 | 核心创新 |
+|------|------|----------|
+| DLRM-HSTU | [`dlrm_hstu.py`](../torcheasyrec/tzrec/models/dlrm_hstu.py) | 用于生成式推荐的 HSTU transducer |
+| ULTRA-HSTU | [`ultra_hstu.py`](../torcheasyrec/tzrec/models/ultra_hstu.py) | 半局部注意力、注意力截断、MoT |
+| HSTU-Match | (在 match_models 中) | 基于 HSTU 的双塔检索 |
 
-## Model Implementation Pattern
+## 模型实现模式
 
-Every model follows the same pattern. Here's DeepFM as an example:
+每个模型都遵循相同的模式。以 DeepFM 为例：
 
 [`torcheasyrec/tzrec/models/deepfm.py`](../torcheasyrec/tzrec/models/deepfm.py)
 
@@ -146,9 +146,9 @@ class DeepFM(RankModel):
     def __init__(self, model_config, features, labels, sample_weights, **kwargs):
         super().__init__(model_config, features, labels, sample_weights, **kwargs)
         self.wide_embedding_dim = self._model_config.wide_embedding_dim
-        self.init_input()  # Creates EmbeddingGroup
+        self.init_input()  # 创建 EmbeddingGroup
         self.fm = FactorizationMachine()
-        # Get feature dims for FM and Deep groups
+        # 获取 FM 与 Deep 组的特征维度
         self._fm_feature_dims = self.embedding_group.group_dims("fm")
         deep_feature_dim = self.embedding_group.group_total_dim("deep")
         self.deep_mlp = MLP(deep_feature_dim, ...)
@@ -156,7 +156,7 @@ class DeepFM(RankModel):
 
     def predict(self, batch):
         grouped_features = self.build_input(batch)
-        # Each named group (wide, deep, fm) → tensor
+        # 每个命名组 (wide, deep, fm) → tensor
         y_wide = grouped_features["wide"].sum(dim=1, keepdim=True)
         y_deep = self.deep_mlp(grouped_features["deep"])
         y_fm = self.fm(grouped_features["fm"].reshape(...))
@@ -164,98 +164,98 @@ class DeepFM(RankModel):
         return self._output_to_prediction(y)
 ```
 
-## Config → Model Mapping
+## Config → Model 映射
 
-The model config name (from proto oneof) maps to class via auto-registration:
+模型配置名（来自 proto oneof）通过自动注册映射到类：
 
 ```
-"deepfm" → DeepFM (in deepfm.py)
-"dssm"   → DSSM (in dssm.py)
-"mmoe"   → MMoE (in mmoe.py)
+"deepfm" → DeepFM (在 deepfm.py)
+"dssm"   → DSSM (在 dssm.py)
+"mmoe"   → MMoE (在 mmoe.py)
 ...
 ```
 
-Registration is automatic: the metaclass (`_meta_cls`) records all `BaseModel` subclasses. When `train_eval.py` imports `tzrec`, `auto_import()` scans and imports all modules, triggering all registrations.
+注册是自动的：metaclass（`_meta_cls`）记录所有 `BaseModel` 子类。当 `train_eval.py` 导入 `tzrec` 时，`auto_import()` 扫描并导入所有模块，触发所有注册。
 
-## Key Files
+## 关键文件
 
-| File | Models |
-|------|--------|
-| [`torcheasyrec/tzrec/models/model.py`](../torcheasyrec/tzrec/models/model.py) | BaseModel, TrainWrapper, PredictWrapper, wrappers |
-| [`torcheasyrec/tzrec/models/rank_model.py`](../torcheasyrec/tzrec/models/rank_model.py) | RankModel base (loss, metric, prediction) |
-| [`torcheasyrec/tzrec/models/match_model.py`](../torcheasyrec/tzrec/models/match_model.py) | MatchModel, MatchTower, similarity |
-| [`torcheasyrec/tzrec/models/multi_task_rank.py`](../torcheasyrec/tzrec/models/multi_task_rank.py) | MultiTaskModel base |
-| [`torcheasyrec/tzrec/models/deepfm.py`](../torcheasyrec/tzrec/models/deepfm.py) | DeepFM (reference implementation) |
-| [`torcheasyrec/tzrec/protos/models/rank_model.proto`](../torcheasyrec/tzrec/protos/models/rank_model.proto) | Rank model protos |
-| [`torcheasyrec/tzrec/protos/models/match_model.proto`](../torcheasyrec/tzrec/protos/models/match_model.proto) | Match model protos |
+| 文件 | 模型 |
+|------|------|
+| [`torcheasyrec/tzrec/models/model.py`](../torcheasyrec/tzrec/models/model.py) | BaseModel、TrainWrapper、PredictWrapper、wrappers |
+| [`torcheasyrec/tzrec/models/rank_model.py`](../torcheasyrec/tzrec/models/rank_model.py) | RankModel 基类（loss、metric、prediction） |
+| [`torcheasyrec/tzrec/models/match_model.py`](../torcheasyrec/tzrec/models/match_model.py) | MatchModel、MatchTower、similarity |
+| [`torcheasyrec/tzrec/models/multi_task_rank.py`](../torcheasyrec/tzrec/models/multi_task_rank.py) | MultiTaskModel 基类 |
+| [`torcheasyrec/tzrec/models/deepfm.py`](../torcheasyrec/tzrec/models/deepfm.py) | DeepFM（参考实现） |
+| [`torcheasyrec/tzrec/protos/models/rank_model.proto`](../torcheasyrec/tzrec/protos/models/rank_model.proto) | 排序模型 protos |
+| [`torcheasyrec/tzrec/protos/models/match_model.proto`](../torcheasyrec/tzrec/protos/models/match_model.proto) | 匹配模型 protos |
 
-## Complete Model Catalog
+## 完整模型目录
 
-### Ranking Models (Single-Task)
+### 排序模型（单任务）
 
-| Model | Sequence | Sparse Output | Feature Interaction |
-|-------|---------|---------------|---------------------|
+| 模型 | 序列 | 稀疏输出 | 特征交互 |
+|------|------|---------|---------|
 | DeepFM | ❌ | KeyedTensor | FM + MLP |
 | WideAndDeep | ❌ | KeyedTensor | Linear + MLP |
-| MultiTower | ❌ | KeyedTensor | Multi-tower concat |
-| **MultiTowerDIN** | ✅ | Mixed (KT + Dict) | Multi-tower + DIN attention |
-| DLRM | ❌ | KeyedTensor | Per-bit dot product |
-| **DLRM-HSTU** | ✅ | Mixed (KT + Dict) | HSTU transducer, generative |
+| MultiTower | ❌ | KeyedTensor | 多塔 concat |
+| **MultiTowerDIN** | ✅ | 混合（KT + Dict） | 多塔 + DIN 注意力 |
+| DLRM | ❌ | KeyedTensor | 按位点积 |
+| **DLRM-HSTU** | ✅ | 混合（KT + Dict） | HSTU transducer，生成式 |
 | DCN | ❌ | KeyedTensor | Cross + MLP |
-| DCN V2 | ❌ | KeyedTensor | Improved cross |
+| DCN V2 | ❌ | KeyedTensor | 改进版 cross |
 | xDeepFM | ❌ | KeyedTensor | CIN + MLP |
 | MaskNet | ❌ | KeyedTensor | Mask + MLP |
-| WuKong | ❌ | KeyedTensor | WuKong network |
-| RocketLaunching | ❌ | KeyedTensor | Dual MLP + distillation |
+| WuKong | ❌ | KeyedTensor | WuKong 网络 |
+| RocketLaunching | ❌ | KeyedTensor | 双 MLP + 蒸馏 |
 
-**Feature interaction patterns:**
+**特征交互模式：**
 
-| Interaction | Models | Mechanism |
-|-------------|--------|-----------|
-| **FM** | DeepFM | 2nd-order feature crossing |
-| **Cross** | DCN, DCN V2 | Explicit cross network |
-| **CIN** | xDeepFM | Compressed Interaction Network |
-| **Dot** | DLRM | Per-bit dot product |
-| **Attention** | MultiTowerDIN, DAT, MIND | Attention mechanism |
-| **MoE** | MMoE, DBMTL | Mixture of Experts |
-| **Mask** | MaskNet, DBMTL | Mask mechanism |
-| **HSTU** | DLRM-HSTU, HSTU | Hierarchical Sequential |
-| **Direct** | MultiTower, WideAndDeep | Direct concat |
+| 交互 | 模型 | 机制 |
+|------|------|------|
+| **FM** | DeepFM | 二阶特征交叉 |
+| **Cross** | DCN, DCN V2 | 显式 Cross network |
+| **CIN** | xDeepFM | 压缩交互网络 |
+| **Dot** | DLRM | 按位点积 |
+| **Attention** | MultiTowerDIN, DAT, MIND | 注意力机制 |
+| **MoE** | MMoE, DBMTL | 混合专家 |
+| **Mask** | MaskNet, DBMTL | Mask 机制 |
+| **HSTU** | DLRM-HSTU, HSTU | 分层序列 |
+| **Direct** | MultiTower, WideAndDeep | 直接 concat |
 
-### Multi-Task Ranking Models
+### 多任务排序模型
 
-| Model | Sequence | Sparse Output | Sharing |
-|-------|---------|---------------|---------|
-| MMoE | ❌ | KeyedTensor | Soft share (all experts) |
-| PLE | ❌ | KeyedTensor | Hard share (dedicated + shared) |
-| PEPNet | ❌ | KeyedTensor | Parameter-level personalization |
-| **DBMTL** | ✅ | Mixed | Mask + MMoE + sequence |
+| 模型 | 序列 | 稀疏输出 | 共享 |
+|------|------|---------|------|
+| MMoE | ❌ | KeyedTensor | 软共享（所有专家） |
+| PLE | ❌ | KeyedTensor | 硬共享（专用 + 共享） |
+| PEPNet | ❌ | KeyedTensor | 参数级个性化 |
+| **DBMTL** | ✅ | 混合 | Mask + MMoE + 序列 |
 | DC2VR | ❌ | KeyedTensor | DCN V2 + CGC |
 
-### Matching Models
+### 匹配模型
 
-| Model | Sequence | Sparse Output | User/Item |
-|-------|---------|---------------|-----------|
-| DSSM | ❌ | KeyedTensor | Two-tower |
-| DSSM V2 | ❌ | KeyedTensor | Two-tower |
-| **DAT** | ✅ | Mixed | Two-tower |
-| **MIND** | ✅ | Mixed | Two-tower |
-| HSTU | ✅ | Mixed | Two-tower |
-| **TDM** | ✅ | Mixed | Single-tower (tree index) |
+| 模型 | 序列 | 稀疏输出 | User/Item |
+|------|------|---------|----------|
+| DSSM | ❌ | KeyedTensor | 双塔 |
+| DSSM V2 | ❌ | KeyedTensor | 双塔 |
+| **DAT** | ✅ | 混合 | 双塔 |
+| **MIND** | ✅ | 混合 | 双塔 |
+| HSTU | ✅ | 混合 | 双塔 |
+| **TDM** | ✅ | 混合 | 单塔（树索引） |
 
-**Sequence encoders:**
+**序列编码器：**
 
-| Encoder | Used By | Mechanism |
-|---------|---------|-----------|
-| `DINEncoder` | MultiTowerDIN | Target-aware attention pooling |
-| `MultiWindowDINEncoder` | TDM | Multi-window attention |
-| `HSTUEncoder` | HSTU | A2A communication |
-| `CapsuleLayer` | MIND | Multi-interest capsule |
-| `DATTower` | DAT | Dual attention |
+| 编码器 | 使用者 | 机制 |
+|--------|--------|------|
+| `DINEncoder` | MultiTowerDIN | 目标感知注意力池化 |
+| `MultiWindowDINEncoder` | TDM | 多窗口注意力 |
+| `HSTUEncoder` | HSTU | A2A 通信 |
+| `CapsuleLayer` | MIND | 多兴趣 capsule |
+| `DATTower` | DAT | 双注意力 |
 
-## Model Selection Decision Trees
+## 模型选择决策树
 
-### Single-Task Ranking
+### 单任务排序
 
 ```
 单任务排序模型选择:
@@ -276,7 +276,7 @@ Registration is automatic: the metaclass (`_meta_cls`) records all `BaseModel` s
     └── 生成式序列 → DLRM-HSTU
 ```
 
-### Multi-Task
+### 多任务
 
 ```
 多任务排序模型选择:
@@ -290,7 +290,7 @@ Registration is automatic: the metaclass (`_meta_cls`) records all `BaseModel` s
 └── 需要特征交叉 → DC2VR (DCN V2 + CGC)
 ```
 
-### Matching
+### 匹配
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -332,12 +332,12 @@ Registration is automatic: the metaclass (`_meta_cls`) records all `BaseModel` s
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Export Compatibility Matrix
+## 导出兼容矩阵
 
-Every model in the catalog supports all four export backends:
+目录中的每个模型都支持全部四种导出后端：
 
-| Category | Model | Default | AOT | TRT | RTP | INPUT_TILE |
-|----------|-------|---------|-----|-----|-----|-----------|
+| 类别 | 模型 | Default | AOT | TRT | RTP | INPUT_TILE |
+|------|------|---------|-----|-----|-----|-----------|
 | **Rank-Single** | DeepFM | ✅ | ✅ | ✅ | ✅ | ✅ |
 | | WideAndDeep | ✅ | ✅ | ✅ | ✅ | ✅ |
 | | MultiTower | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -362,31 +362,28 @@ Every model in the catalog supports all four export backends:
 | | HSTU | ✅ | ✅ | ✅ | ✅ | ✅ |
 | | **TDM** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-### `WORLD_SIZE` Constraint
+### `WORLD_SIZE` 约束
 
-| Export | `WORLD_SIZE` | Notes |
-|--------|-------------|-------|
-| Default | 1 | Single-process export |
-| AOT | 1 | Single-process export |
-| TRT | 1 | Single-process export |
-| RTP | N | Supports distributed export |
+| 导出 | `WORLD_SIZE` | 说明 |
+|------|-------------|------|
+| Default | 1 | 单进程导出 |
+| AOT | 1 | 单进程导出 |
+| TRT | 1 | 单进程导出 |
+| RTP | N | 支持分布式导出 |
 
-### Known Limitations
+### 已知限制
 
-| Model | Limitation | Notes |
-|-------|-----------|-------|
-| DLRM-HSTU | Special handling | Uses `JaggedTensor`, needs `_fx_construct_payload` wrapper |
-| RocketLaunching | Special handling | Includes distillation logic |
+| 模型 | 限制 | 说明 |
+|------|------|------|
+| DLRM-HSTU | 特殊处理 | 使用 `JaggedTensor`，需要 `_fx_construct_payload` 包装器 |
+| RocketLaunching | 特殊处理 | 包含蒸馏逻辑 |
 
-### Sparse Output Format
+### 稀疏输出格式
 
-| Format | Models | Why |
-|--------|--------|-----|
-| `KeyedTensor` (pooled) | DeepFM, WideAndDeep, DCN, MMoE, … | All non-sequence features are pooled into fixed-size vectors per EBC |
-| `Dict` (unpooled) | DLRM-HSTU, sequence models | Sequence outputs are per-step, can't be packed into a single `KeyedTensor` |
-| Mixed | MultiTowerDIN, DBMTL, DAT, MIND, TDM | Some feature groups are pooled (KT) and some are sequential (Dict) |
+| 格式 | 模型 | 原因 |
+|------|------|------|
+| `KeyedTensor`（池化） | DeepFM、WideAndDeep、DCN、MMoE、… | 所有非序列特征按 EBC 池化为固定大小向量 |
+| `Dict`（未池化） | DLRM-HSTU、序列模型 | 序列输出是 per-step 的，无法打包到单个 `KeyedTensor` |
+| 混合 | MultiTowerDIN、DBMTL、DAT、MIND、TDM | 部分特征组是池化的（KT），部分是序列的（Dict） |
 
-The mixed output format is what forces the `fx_mark_*` sentinel design
-described in [09-export-pipeline.md](09-export-pipeline): the boundary
-between sparse and dense must be marked at multiple points in the
-graph, and each mark carries a different type signature.
+混合输出格式是 [09-export-pipeline.md](09-export-pipeline) 中描述的 `fx_mark_*` 哨兵设计所必需的：稀疏与稠密之间的边界必须在图中的多个点标记，每个标记都带有不同的类型签名。

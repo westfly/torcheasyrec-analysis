@@ -1,54 +1,54 @@
 ---
-title: Project Overview & Background
+title: 项目概览与背景
 nav_order: 2
 ---
 
-# Project Overview & Background
+# 项目概览与背景
 
-## What is TorchEasyRec?
+## 什么是 TorchEasyRec？
 
-TorchEasyRec is a **PyTorch-based recommendation system framework** developed by Alibaba's PAI team. It provides a complete workflow for building, training, and deploying large-scale deep learning recommendation models.
+TorchEasyRec 是由阿里巴巴 PAI 团队开发的**基于 PyTorch 的推荐系统框架**，提供从模型构建、训练到部署的完整工作流，可处理大规模深度学习推荐模型。
 
-Unlike general-purpose DL frameworks, TorchEasyRec is purpose-built for recommendation tasks:
+与通用深度学习框架不同，TorchEasyRec 是为推荐任务专门设计的：
 
-- **Matching (Candidate Generation)**: DSSM, MIND, TDM, DAT
-- **Scoring (Ranking)**: DeepFM, DIN, DLRM, DCN, xDeepFM, WuKong
-- **Multi-Task Learning**: MMoE, PLE, DBMTL, PEPNet
-- **Generative Recommendation**: DLRM-HSTU, ULTRA-HSTU, HSTU-Match
+- **匹配（召回，Matching / Candidate Generation）**：DSSM、MIND、TDM、DAT
+- **打分（排序，Scoring / Ranking）**：DeepFM、DIN、DLRM、DCN、xDeepFM、WuKong
+- **多任务学习（Multi-Task Learning）**：MMoE、PLE、DBMTL、PEPNet
+- **生成式推荐（Generative Recommendation）**：DLRM-HSTU、ULTRA-HSTU、HSTU-Match
 
-## Problem It Solves
+## 它要解决的问题
 
-Building production recommendation systems requires solving many hard problems:
+构建生产级推荐系统需要应对一系列棘手难题：
 
-1. **Feature engineering** — handling categorical features (millions of IDs), raw numerical features, sequential behavior features, cross features
-2. **Large-scale embeddings** — embedding tables can be terabytes; need distributed sharding
-3. **Training efficiency** — hybrid data/model parallelism, mixed precision, gradient clipping
-4. **Serving** — TensorRT / AOTInductor acceleration, EAS deployment on Alibaba Cloud
-5. **Feature generation consistency** — same feature transforms for training and serving
+1. **特征工程（Feature engineering）** — 处理类别特征（数百万 ID）、原始数值特征、序列行为特征、交叉特征
+2. **大规模嵌入（Large-scale embeddings）** — 嵌入表可达 TB 级，需要分布式分片
+3. **训练效率（Training efficiency）** — 数据 / 模型混合并行、混合精度、梯度裁剪
+4. **在线服务（Serving）** — TensorRT / AOTInductor 加速、阿里云 EAS 部署
+5. **特征生成一致性（Feature generation consistency）** — 训练与推理使用相同的特征变换
 
-TorchEasyRec addresses all of these with a **configuration-driven** approach: users define data schema, feature configs, and model architecture in protobuf configs, and the framework builds the corresponding PyTorch model.
+TorchEasyRec 以**配置驱动（configuration-driven）** 的方式解决上述所有问题：用户在 protobuf 配置中定义数据 schema、特征配置、模型架构，框架据此构建对应的 PyTorch 模型。
 
-## Key Differentiators
+## 关键差异化优势
 
-| Feature | TorchEasyRec | EasyRec (TF) | TorchRec | XGBoost-based |
-|---------|-------------|-------------|----------|---------------|
-| Backend | PyTorch | TensorFlow | PyTorch | N/A |
-| Model Count | 20+ | 20+ | 1 (DLRM) | ~5 |
-| Distributed Training | TorchRec sharding | TF distribution | Native | No |
-| Feature Generation | pyfg (DAG-based) | Feature configs | Manual | Manual |
-| Custom Models | Plugin-based | Plugin-based | Write from scratch | N/A |
-| Cloud Integration | MaxCompute, PAI, EAS | Similar | N/A | N/A |
-| Inference Acceleration | TensorRT, AOTInductor | TF-TRT | AOTInductor | N/A |
+| 维度 | TorchEasyRec | EasyRec (TF) | TorchRec | XGBoost-based |
+|------|-------------|-------------|----------|---------------|
+| 后端 | PyTorch | TensorFlow | PyTorch | 不适用 |
+| 模型数量 | 20+ | 20+ | 1（DLRM） | ~5 |
+| 分布式训练 | TorchRec 分片 | TF 分布式 | 原生 | 不支持 |
+| 特征生成 | pyfg（基于 DAG） | 特征配置 | 手动 | 手动 |
+| 自定义模型 | 插件化 | 插件化 | 从零编写 | 不适用 |
+| 云集成 | MaxCompute、PAI、EAS | 类似 | 不适用 | 不适用 |
+| 推理加速 | TensorRT、AOTInductor | TF-TRT | AOTInductor | 不适用 |
 
-## When to Use TorchEasyRec
+## 何时选用 TorchEasyRec
 
-- You need a **production-ready** recommendation system on Alibaba Cloud
-- You want to quickly experiment with 20+ SOTA models without writing code
-- You need **distributed training** for large-scale embeddings
-- You require **consistent feature generation** between training and serving
-- You're migrating from EasyRec (TF) to PyTorch
+- 你在阿里云上需要一个**生产就绪**的推荐系统
+- 你希望快速实验 20+ SOTA 模型，而无需编写代码
+- 你需要**分布式训练**以应对大规模嵌入
+- 你要求训练与推理之间的**特征生成严格一致**
+- 你正从 EasyRec（TF 版本）迁移到 PyTorch
 
-## High-Level Architecture
+## 整体架构
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -90,21 +90,21 @@ TorchEasyRec addresses all of these with a **configuration-driven** approach: us
 └─────────────────────────────────────────────────────────┘
 ```
 
-## References
+## 参考资料
 
-- [Official Docs](https://torcheasyrec.readthedocs.io/)
-- [GitHub Repository](../torcheasyrec/)
-- [EasyRec (TensorFlow predecessor)](https://github.com/alibaba/EasyRec)
+- [官方文档](https://torcheasyrec.readthedocs.io/)
+- [GitHub 仓库](../torcheasyrec/)
+- [EasyRec（TensorFlow 前身）](https://github.com/alibaba/EasyRec)
 
-## Key Files
+## 关键文件
 
-| File | Purpose |
-|------|---------|
-| [`torcheasyrec/tzrec/main.py`](../torcheasyrec/tzrec/main.py) | Core training, evaluation, export pipeline |
-| [`torcheasyrec/tzrec/models/model.py`](../torcheasyrec/tzrec/models/model.py) | BaseModel and wrappers (TrainWrapper, PredictWrapper) |
-| [`torcheasyrec/tzrec/models/rank_model.py`](../torcheasyrec/tzrec/models/rank_model.py) | RankModel base — loss, metric, prediction logic |
-| [`torcheasyrec/tzrec/models/match_model.py`](../torcheasyrec/tzrec/models/match_model.py) | MatchModel base — embedding similarity, in-batch neg |
-| [`torcheasyrec/tzrec/features/feature.py`](../torcheasyrec/tzrec/features/feature.py) | BaseFeature and create_features() factory |
-| [`torcheasyrec/tzrec/modules/embedding.py`](../torcheasyrec/tzrec/modules/embedding.py) | EmbeddingGroup, EmbeddingGroupImpl, SequenceEmbeddingGroupImpl |
-| [`torcheasyrec/tzrec/protos/pipeline.proto`](../torcheasyrec/tzrec/protos/pipeline.proto) | Pipeline config (EasyRecConfig) definition |
-| [`torcheasyrec/tzrec/protos/model.proto`](../torcheasyrec/tzrec/protos/model.proto) | Model config definition (all model types) |
+| 文件 | 用途 |
+|------|------|
+| [`torcheasyrec/tzrec/main.py`](../torcheasyrec/tzrec/main.py) | 训练、评估、导出核心管线 |
+| [`torcheasyrec/tzrec/models/model.py`](../torcheasyrec/tzrec/models/model.py) | BaseModel 及包装器（TrainWrapper、PredictWrapper） |
+| [`torcheasyrec/tzrec/models/rank_model.py`](../torcheasyrec/tzrec/models/rank_model.py) | RankModel 基类 — 损失、指标、预测逻辑 |
+| [`torcheasyrec/tzrec/models/match_model.py`](../torcheasyrec/tzrec/models/match_model.py) | MatchModel 基类 — 嵌入相似度、批内负采样 |
+| [`torcheasyrec/tzrec/features/feature.py`](../torcheasyrec/tzrec/features/feature.py) | BaseFeature 与 create_features() 工厂 |
+| [`torcheasyrec/tzrec/modules/embedding.py`](../torcheasyrec/tzrec/modules/embedding.py) | EmbeddingGroup、EmbeddingGroupImpl、SequenceEmbeddingGroupImpl |
+| [`torcheasyrec/tzrec/protos/pipeline.proto`](../torcheasyrec/tzrec/protos/pipeline.proto) | 管线配置（EasyRecConfig）定义 |
+| [`torcheasyrec/tzrec/protos/model.proto`](../torcheasyrec/tzrec/protos/model.proto) | 模型配置定义（全部模型类型）|

@@ -247,6 +247,52 @@ forward(sparse_feature, dense_feature, ...):
             kts, feature_names, group_names)    # 按组张量
 ```
 
+## DynamicEmb 透传路径
+
+`embedding.py` 自身**不直接处理** DynamicEmb——`grep "dynamicemb"` 在该文件零命中。但 DynamicEmb 特征确实进入了模型：是通过**元数据透传**让下游 planner / DMP 自动切换到 dynamicemb 路径。`embedding.py` 是统一的"上游配置打包器"，对 dynamiceb 完全透明、零侵入。
+
+### 透传链 5 步
+
+```
+1) feature.emb_bag_config.use_dynamicemb = True           # 标记（feature.py:631/657）
+2) feature.parameter_constraints()                          # 返回 DynamicEmbParameterConstraints（feature.py:828-833）
+        ↓
+3) EmbeddingGroupImpl._emb_bag_constraints[name] = const   # 一视同仁收集（embedding.py:729/764）
+        ↓
+4) plan_util._emit_dynamicemb_variants()                   # dynamicemb 走 2模式×10比率 展开（plan_util.py:887-916）
+        ↓
+5) DMP 按 plan 替换 compute_kernel                          # CUSTOMIZED_KERNEL → BatchedDynamicEmbeddingTablesV2
+```
+
+### 关键事实
+
+| 路径 | 行为 |
+|------|------|
+| `feature.emb_bag_config` | 普通 `EmbeddingBagConfig` + `use_dynamicemb=True` 标签（[feature.py:631](../torcheasyrec/tzrec/features/feature.py#L631)） |
+| `feature.parameter_constraints` | DynamicEmb 特征返回 `DynamicEmbParameterConstraints`（[feature.py:828-833](../torcheasyrec/tzrec/features/feature.py#L828-L833)），非 DynamicEmb 走标准 `ParameterConstraints` 或 `None` |
+| `EmbeddingGroupImpl.__init__` | **无差别**收集到 `self._emb_bag_constraints`（[embedding.py:729/764](../torcheasyrec/tzrec/modules/embedding.py#L729)）— 它不知道也不需要知道这是 DynamicEmb |
+| `self.ebc = EmbeddingBagCollection(...)` | 同样会建 EBC — 但这是 **planner 占位**，DMP 替换时会被丢弃 |
+| Planner 派发 | DynamicEmb 走 `DynamicEmbParameterSharding`（`compute_kernel=CUSTOMIZED_KERNEL`、`customized_compute_kernel=DynamicEmb`），普通走标准 `ParameterSharding` |
+| DMP 实例化 | DynamicEmb 走 `BatchedDynamicEmbeddingTablesV2`（C++/CUDA），普通走 `ShardedEmbeddingBagCollection`（FBGEMM） |
+
+### 集成边界
+
+`embedding.py` 只在 **planner 链路（静态规划）** 上"被动"提供 constraints 数据；**DMP 替换链路（动态执行）** 完全不被它管。完整分流决策在两条独立路径上发生：
+
+- **A) Planner 链路（静态）**：`feature.parameter_constraints()` → `EmbeddingGroupImpl._emb_bag_constraints` → `plan_util.create_planner()` → `_emit_dynamicemb_variants()` → `DynamicEmbParameterSharding`
+- **B) DMP 替换链路（动态）**：`DMP(model, plan)` 按每个 table 的 `compute_kernel` 字段分流：
+  - `standard` → `ShardedEmbeddingBagCollection`（FBGEMM `dense_lookups`）
+  - `CUSTOMIZED_KERNEL / DynamicEmb` → `BatchedDynamicEmbeddingTablesV2`（CUDA `DynamicEmbStorage / HybridStorage / DynamicEmbCache`）
+
+### 设计含义
+
+1. **零侵入**：DynamicEmb 集成对 `embedding.py` 透明——只要 feature 层打了 `use_dynamicemb` 标记，下游自动切换路径，`embedding.py` 一行代码都不用改。
+2. **占位 EBC 的浪费**：构造时所有特征（含 DynamicEmb）都建 EBC；DMP 替换时丢弃 DynamicEmb 部分。短期内存会双份（TorchRec 标准行为）。
+3. **动态约束**：DynamicEmb 的所有特殊处理（4 个 monkey-patch、variant emission、storage estimator、sharding plan 改写）都在 [`dynamicemb_util.py`](../torcheasyrec/tzrec/utils/dynamicemb_util.py) 与 [`plan_util.py`](../torcheasyrec/tzrec/utils/plan_util.py) 中，`embedding.py` 完全不参与。
+4. **运行时假象**：`embedding.py` 看到的"EBC 里有这个 table"是规划视角的假象；运行时该 table 实际由 `BatchedDynamicEmbeddingTablesV2` 接管（通过 `DynamicEmbeddingBagCollectionSharder` 的 `ModuleSharder` 流程），不存在标准 EBC。
+
+详细的双视角深度解析（NVIDIA 上游 + TorchEasyRec 集成）见 [10-dynamicemb-integration](10-dynamicemb-integration)。
+
 ## 关键文件
 
 | 文件 | 用途 |
@@ -255,5 +301,6 @@ forward(sparse_feature, dense_feature, ...):
 | [`torcheasyrec/tzrec/modules/dense_embedding_collection.py`](../torcheasyrec/tzrec/modules/dense_embedding_collection.py) | `DenseEmbeddingCollection`、AutoDis/MLP 配置 |
 | [`torcheasyrec/tzrec/modules/sequence.py`](../torcheasyrec/tzrec/modules/sequence.py) | 序列编码器（LSTM、Pooling、Attention） |
 | [`torcheasyrec/tzrec/features/feature.py`](../torcheasyrec/tzrec/features/feature.py) | `emb_bag_config`、`emb_config`、`mc_module()` on BaseFeature |
-| [`torcheasyrec/tzrec/utils/plan_util.py`](../torcheasyrec/tzrec/utils/plan_util.py) | TorchRec 分片规划器 |
+| [`torcheasyrec/tzrec/utils/plan_util.py`](../torcheasyrec/tzrec/utils/plan_util.py) | TorchRec 分片规划器 + `_emit_dynamicemb_variants`（[L887-916](../torcheasyrec/tzrec/utils/plan_util.py#L887-L916)） |
 | [`torcheasyrec/tzrec/utils/dist_util.py`](../torcheasyrec/tzrec/utils/dist_util.py) | `DistributedModelParallel` |
+| [`torcheasyrec/tzrec/utils/dynamicemb_util.py`](../torcheasyrec/tzrec/utils/dynamicemb_util.py) | DynamicEmb 约束构建 + 4 个 planner monkey-patch |

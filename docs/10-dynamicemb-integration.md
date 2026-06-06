@@ -1,6 +1,6 @@
 ---
 title: DynamicEmb 集成
-nav_order: 11
+nav_order: 10
 ---
 
 # DynamicEmb 集成

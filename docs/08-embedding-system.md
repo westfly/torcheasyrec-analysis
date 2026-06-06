@@ -1,6 +1,6 @@
 ---
 title: 嵌入系统
-nav_order: 9
+nav_order: 8
 ---
 
 # 嵌入系统

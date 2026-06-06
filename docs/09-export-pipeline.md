@@ -1,6 +1,6 @@
 ---
 title: 导出与 RTP 管线
-nav_order: 10
+nav_order: 9
 ---
 
 # 导出与 RTP 管线
@@ -399,6 +399,8 @@ RTP 对框架的其他部分有一些不明显的要求：
 | `DEBUG_TRT` | `acc.utils.is_debug_trt()` | 启用 TRT 图日志 + profiler dump。 |
 | `FORCE_LOAD_SHARDING_PLAN` | `env_util.force_load_sharding_plan()` | 重用 checkpoint 中的分片计划。 |
 | `LOCAL_CACHE_DIR` | `export_model` | 当 `save_dir` 是远程 URL（fsspec）时的本地临时目录。 |
+
+> C++ IO（Scripted Model 加载、safetensors 导出）不可被 fsspec 透传，必须用 `LOCAL_CACHE_DIR` 中转。完整机制见 [USE_FSSPEC 与 fsspec 透传机制](11-use-fsspec) 第三节。
 
 predict-time loader 从 `model_acc.json` 读取相同的变量以选择匹配的反序列化器——参见 [`acc/utils.py`](torcheasyrec/tzrec/acc/utils.py) 中的 `*_predict()` 谓词。
 

@@ -1,6 +1,6 @@
 ---
 title: 初始化流程
-nav_order: 5
+nav_order: 4
 ---
 
 # 初始化流程
@@ -151,6 +151,8 @@ def _create_model(model_config, features, labels, sampler_type):
 8. **自动导入所有类**（load_class.auto_import）
 9. **注册外部文件系统**（OSS、ODPS）
 10. **应用 RAM 凭证补丁**（针对阿里云）
+
+> 外部文件系统的 fsspec 透传机制（`USE_FSSPEC` 环境变量、10 个 IO 函数 monkeypatch、C++ IO 绕行）见 [USE_FSSPEC 与 fsspec 透传机制](11-use-fsspec)。
 
 ## 关键文件
 

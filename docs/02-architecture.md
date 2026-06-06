@@ -1,6 +1,6 @@
 ---
 title: 架构总览
-nav_order: 3
+nav_order: 2
 ---
 
 # 架构总览

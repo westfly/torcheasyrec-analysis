@@ -1,6 +1,6 @@
 ---
 title: 特征系统
-nav_order: 8
+nav_order: 7
 ---
 
 # 特征系统

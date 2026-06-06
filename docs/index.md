@@ -1,43 +1,66 @@
 ---
 title: 首页
-nav_order: 12
+nav_order: 0
 ---
 
-# TorchEasyRec 源码分析
+# TorchEasyRec 源码分析 · 中文导览
 
-[TorchEasyRec](https://github.com/alibaba/TorchEasyRec) 是阿里巴巴开源的**基于 PyTorch 的生产级推荐系统框架**，包含 20+ 候选生成（召回）、打分（排序）、多任务学习、生成式推荐领域的 SOTA 模型。
+本仓库是对 [TorchEasyRec](https://github.com/alibaba/TorchEasyRec)（阿里巴巴开源的 PyTorch 推荐系统框架）的逐文件源码分析，覆盖训练、评估、分布式、导出、DynamicEmb 集成等核心子系统。每篇文档都对齐到具体源文件的精确行号（链接指向 GitHub），方便读者在阅读分析与跳转源码之间无缝切换。
 
-## 站点说明
+## 在线阅读
 
-本站点是对 TorchEasyRec 源码的逐文件分析文档，覆盖训练、评估、分布式、导出、DynamicEmb 集成等核心子系统。
+完整 GitHub Pages 站点：<https://westfly.github.io/torcheasyrec-analysis/>
 
-**推荐入口：[中文导览](zh-nav)** — 包含完整的文档目录、仓库结构、引用格式与许可信息。
+## 文档目录
 
-## 文档列表
-
-| 文档 | 简介 |
-|------|------|
-| [中文导览](zh-nav) | 文档目录、仓库结构、引用与许可（推荐入口） |
-| [项目概览与背景](01-project-overview) | TorchEasyRec 是什么、为何存在、关键特性 |
-| [架构总览](02-architecture) | 分层、数据流、组件协同 |
-| [代码结构](03-code-structure) | 目录布局、构建系统、proto 配置 |
-| [初始化流程](04-initialization-flow) | 从 CLI 到可训练模型 |
-| [训练流程](05-training-flow) | 训练管线：数据 → 特征 → 模型 → 损失 |
-| [模型系统](06-model-system) | BaseModel → RankModel → 20+ 具体模型 |
-| [特征系统](07-feature-system) | 12 种特征类型、FG 模式、解析 |
-| [嵌入系统](08-embedding-system) | EmbeddingGroup、TorchRec、分布式分片 |
-| [导出管线](09-export-pipeline) | JIT/TRT/AOTI/RTP 导出、FX 切图、稀疏/稠密分离 |
-| [DynamicEmb 集成](10-dynamicemb-integration) | NVIDIA GPU 哈希表嵌入后端与集成 |
+| 章节 | 标题 | 简介 |
+|------|------|------|
+| [01](01-project-overview) | 项目概览与背景 | 框架定位、解决的痛点、关键差异化、整体架构图 |
+| [02](02-architecture) | 架构总览 | 六层架构、High-Level System View、配置驱动设计 |
+| [03](03-code-structure) | 代码结构 | 顶层目录、`tzrec/` 子包划分、proto 配置体系 |
+| [04](04-initialization-flow) | 初始化流程 | 从 CLI 到可训练模型的完整序列 |
+| [05](05-training-flow) | 训练流程 | 单步数据流、两阶段初始化、混合精度、Pipeline、optimizer 层级 |
+| [06](06-model-system) | 模型系统 | `BaseModel` 层级、20+ 模型目录、模型选择决策树、导出兼容矩阵 |
+| [07](07-feature-system) | 特征系统 | 12 种特征类型、4 种 FG 模式、纯 Python FG 迁移方案 |
+| [08](08-embedding-system) | 嵌入系统 | `EmbeddingGroup`、TorchRec 分片、ZCH、DenseEmbeddingCollection |
+| [09](09-export-pipeline) | 导出管线 | JIT / TRT / AOTI / RTP 四后端对比、FX 切图、INPUT_TILE |
+| [10](10-dynamicemb-integration) | DynamicEmb 集成 | NVIDIA GPU 哈希表嵌入后端的双视角深度解析 |
+| [11](11-use-fsspec) | USE_FSSPEC 透传 | 外部文件系统抽象、`fsspec` 协议解析、10 个 IO 函数 monkeypatch、C++ IO 绕行 |
 
 ## 速览
 
-- **457+ 提交 / 392 star / 74 fork**
-- **`tzrec/` 中 295 个 Python 文件**
-- **20+ 模型**：DSSM、TDM、DeepFM、DIN、MMoE、PLE、PEPNet、DLRM-HSTU
-- **12 种特征类型**：IdFeature、RawFeature、SequenceFeature 等
-- **技术栈**：PyTorch、TorchRec、pyfg（特征生成）
+- **仓库规模**：457+ 提交 / 392 star / 74 fork（截至 2025）
+- **代码量**：`tzrec/` 295 个 Python 文件
+- **模型数**：20+ 排序、召回、多任务、生成式推荐模型
+- **特征类型**：12 种（`IdFeature` / `RawFeature` / `SequenceFeature` 等）
+- **技术栈**：PyTorch + TorchRec + pyfg（特征生成）
 
----
+## 仓库结构
 
-**在线地址**：<https://westfly.github.io/torcheasyrec-analysis/>  
-**源码仓库**：<https://github.com/westfly/torcheasyrec-analysis>
+```
+torcheasyrec-analysis/
+├── docs/                       # 本分析文档（11 篇 + 首页）
+├── torcheasyrec/               # TorchEasyRec 源码子模块（pin 7dc1c188）
+├── external/recsys-examples/   # NVIDIA recsys-examples 子模块（pin 2091502，仅用于 DynamicEmb）
+├── .github/workflows/pages.yml # GitHub Pages CI
+├── scripts/update_submodule.sh # 子模块更新脚本
+├── README.md                   # 中文 README
+└── LICENSE                     # MIT
+```
+
+## 引用方式
+
+```bibtex
+@misc{torcheasyrec-analysis-2025,
+  title  = {TorchEasyRec Source Analysis},
+  author = {westfly},
+  year   = {2025},
+  url    = {https://github.com/westfly/torcheasyrec-analysis},
+  note   = {Pin: TorchEasyRec@7dc1c188, recsys-examples@2091502}
+}
+```
+
+## 许可
+
+- 文档与脚本采用 [MIT](https://opensource.org/licenses/MIT) 许可
+- 引用的 TorchEasyRec、recsys-examples 源码子模块保留各自上游的 Apache-2.0 许可

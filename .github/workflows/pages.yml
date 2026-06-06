@@ -1,0 +1,67 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Git submodule
+        run: |
+          git submodule update --init --recursive
+
+      - name: Rewrite source links for Pages
+        run: |
+          TZREC_COMMIT=$(git ls-tree HEAD torcheasyrec | awk '{print $3}')
+          TZREC_BASE="https://github.com/alibaba/TorchEasyRec/blob/${TZREC_COMMIT}"
+          DEMB_COMMIT=$(git ls-tree HEAD external/recsys-examples | awk '{print $3}')
+          DEMB_BASE="https://github.com/NVIDIA/recsys-examples/blob/${DEMB_COMMIT}/corelib/dynamicemb"
+          cd docs
+          for f in [0-9]*.md index.md; do
+            sed -i \
+              -e "s|\](torcheasyrec/|](${TZREC_BASE}/|g" \
+              -e "s|\](../external/recsys-examples/corelib/dynamicemb/|](${DEMB_BASE}/|g" \
+              -e "s|\](external/recsys-examples/corelib/dynamicemb/|](${DEMB_BASE}/|g" \
+              "$f"
+          done
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: docs
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

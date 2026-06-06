@@ -1,0 +1,6 @@
+[submodule "torcheasyrec"]
+	path = torcheasyrec
+	url = https://github.com/alibaba/TorchEasyRec
+[submodule "external/recsys-examples"]
+	path = external/recsys-examples
+	url = https://github.com/NVIDIA/recsys-examples.git

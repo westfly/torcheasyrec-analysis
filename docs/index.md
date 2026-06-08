@@ -26,6 +26,10 @@ nav_order: 0
 | [09](09-export-pipeline) | 导出管线 | JIT / TRT / AOTI / RTP 四后端对比、FX 切图、INPUT_TILE |
 | [10](10-dynamicemb-integration) | DynamicEmb 集成 | NVIDIA GPU 哈希表嵌入后端的双视角深度解析 |
 | [11](11-use-fsspec) | USE_FSSPEC 透传 | 外部文件系统抽象、`fsspec` 协议解析、10 个 IO 函数 monkeypatch、C++ IO 绕行 |
+| [12](12-loss) | 损失函数 | BinaryFocalLoss、JRCLoss、ParetoEfficientMultiTaskLoss |
+| [13](13-metrics) | 评估指标 | GroupedAUC、XAUC、DecayAUC、Recall@K、NormalizedEntropy、UniqueRatio |
+| [14](14-optim) | 优化器与学习率调度器 | 稀疏/稠密优化器类型、5 种 LR 调度器、混合精度与梯度配置 |
+| [15](15-env) | 环境变量 | 分布式/推理/特征/导出/日志/数据源/测试全表 |
 
 ## 速览
 
@@ -39,7 +43,7 @@ nav_order: 0
 
 ```
 torcheasyrec-analysis/
-├── docs/                       # 本分析文档（11 篇 + 首页）
+├── docs/                       # 本分析文档（15 篇 + 首页）
 ├── torcheasyrec/               # TorchEasyRec 源码子模块（pin 7dc1c188）
 ├── external/recsys-examples/   # NVIDIA recsys-examples 子模块（pin 2091502，仅用于 DynamicEmb）
 ├── .github/workflows/pages.yml # GitHub Pages CI

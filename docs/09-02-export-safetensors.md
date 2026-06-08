@@ -135,17 +135,6 @@ tensor 命名：
 
 DynamicEmb 额外字段：`hashmap_key`、`hashmap_value`、`hashmap_key_dtype`（固定 `int64`）。
 
-### 单机四卡样例
-
-```
-model-000000-of-000004.safetensors    # rank0: user_id_emb [1141730, 16]
-model-000001-of-000004.safetensors    # rank1: adgroup_id_emb [846812, 16]
-model-000002-of-000004.safetensors    # rank2: brand_emb [461498, 16]
-model-000003-of-000004.safetensors    # rank3: campaign_id_emb [423438, 16]
-```
-
-对应 `.json` 展示 RTP 分片后"按 rank 持有局部 sparse 参数"的直观体现。
-
 ## Default vs RTP 对比
 
 | 特性 | Default | RTP |
@@ -156,15 +145,4 @@ model-000003-of-000004.safetensors    # rank3: campaign_id_emb [423438, 16]
 | **图文件** | `gm.code` | `gm_full/gm_sparse/gm_dense` |
 | **适用场景** | 通用推理 | 在线实时推理 |
 
-## 读取工具
 
-```bash
-# 列表
-python tools/read_rtp_safetensors.py --dir <export_dir> --list
-
-# 查看某个 tensor
-python tools/read_rtp_safetensors.py --dir <export_dir> --show <tensor_name>
-
-# 汇总统计
-python tools/read_rtp_safetensors.py --dir <export_dir>
-```

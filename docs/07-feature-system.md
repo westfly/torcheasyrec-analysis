@@ -1,6 +1,7 @@
 ---
 title: 特征系统
 nav_order: 7
+has_children: true
 ---
 
 # 特征系统

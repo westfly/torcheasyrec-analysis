@@ -21,9 +21,13 @@ nav_order: 0
 | [04](04-initialization-flow) | 初始化流程 | 从 CLI 到可训练模型的完整序列 |
 | [05](05-training-flow) | 训练流程 | 单步数据流、两阶段初始化、混合精度、Pipeline、optimizer 层级 |
 | [06](06-model-system) | 模型系统 | `BaseModel` 层级、20+ 模型目录、模型选择决策树、导出兼容矩阵 |
+| [06-01](06-01-model-modules) | └ Modules 模块 | 稀疏/稠密/序列网络、模型→模块反向索引、ASCII 拓扑速查 |
 | [07](07-feature-system) | 特征系统 | 12 种特征类型、4 种 FG 模式、纯 Python FG 迁移方案 |
+| [07-01](07-01-feature-dataparser) | └ DataParser | 四模式对比、parse→to_batch 流程、SparseData→KJT 映射 |
 | [08](08-embedding-system) | 嵌入系统 | `EmbeddingGroup`、TorchRec 分片、ZCH、DenseEmbeddingCollection |
 | [09](09-export-pipeline) | 导出管线 | JIT / TRT / AOTI / RTP 四后端对比、FX 切图、INPUT_TILE |
+| [09-01](09-01-export-aot) | └ AOT 编译 | .so/.pt2 生成、meta.json 字段、检查调试工具 |
+| [09-02](09-02-export-safetensors) | └ Checkpoint/Export 产物 | 目录结构、safetensors 格式、Default vs RTP 对比 |
 | [10](10-dynamicemb-integration) | DynamicEmb 集成 | NVIDIA GPU 哈希表嵌入后端的双视角深度解析 |
 | [11](11-use-fsspec) | USE_FSSPEC 透传 | 外部文件系统抽象、`fsspec` 协议解析、10 个 IO 函数 monkeypatch、C++ IO 绕行 |
 | [12](12-loss) | 损失函数 | BinaryFocalLoss、JRCLoss、ParetoEfficientMultiTaskLoss |

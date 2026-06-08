@@ -1,6 +1,7 @@
 ---
 title: 模型系统
 nav_order: 6
+has_children: true
 ---
 
 # 模型系统

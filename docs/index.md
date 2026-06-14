@@ -32,7 +32,12 @@ nav_order: 0
 | [11](11-loss) | 损失函数 | BinaryFocalLoss、JRCLoss、ParetoEfficientMultiTaskLoss |
 | [12](12-metrics) | 评估指标 | GroupedAUC、XAUC、DecayAUC、Recall@K、NormalizedEntropy、UniqueRatio |
 | [13](13-optimizer) | 优化器与学习率调度器 | 稀疏/稠密优化器类型、5 种 LR 调度器、混合精度与梯度配置 |
+| [19](19-extending) | 扩展机制与自定义模型 | 元类注册 vs if-elif 硬编码、完整扩展步骤、Proto 生成 |
+| [20](20-data-pipeline) | 数据管线：Dataset 体系 | BaseDataset 基类、5 种 Dataset、Reader/Writer、Batch 数据结构 |
+| [21](21-sampler) | Sampler 采样体系 | 5 种采样器、graphlearn 依赖、分布式协同、Batch 注入 |
+| [22](22-feature-group) | Feature Group 与 Sequence Encoder | 三种 group_type、5 种 Sequence Encoder、embedding_name_suffix |
 | | **推理篇** | |
+| [23](23-offline-prediction) | 离线预测/评估入口 | tzrec.eval、tzrec.predict CLI、两种预测模式、评估流程 |
 | [14](14-export-pipeline) | 导出管线 | JIT / TRT / AOTI / RTP 四后端对比、FX 切图、INPUT_TILE |
 | [14-01](14-01-export-aot) | └ AOT 编译 | .so/.pt2 生成、meta.json 字段、检查调试工具 |
 | [14-02](14-02-export-safetensors) | └ Checkpoint/Export 产物 | 目录结构、safetensors 格式、Default vs RTP 对比 |
@@ -58,7 +63,7 @@ nav_order: 0
 
 ```
 torcheasyrec-analysis/
-├── docs/                       # 本分析文档（19 篇 + 7 子页 + 4 section header + 首页）
+├── docs/                       # 本分析文档（24 篇 + 7 子页 + 4 section header + 首页）
 ├── torcheasyrec/               # TorchEasyRec 源码子模块（pin 7dc1c188）
 ├── external/recsys-examples/   # NVIDIA recsys-examples 子模块（pin 2091502，仅用于 DynamicEmb）
 ├── .github/workflows/pages.yml # GitHub Pages CI

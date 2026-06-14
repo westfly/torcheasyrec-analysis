@@ -1,6 +1,6 @@
 ---
 title: 模型系统
-nav_order: 3
+nav_order: 4
 has_children: true
 parent: 训练篇
 ---
@@ -388,4 +388,4 @@ class DeepFM(RankModel):
 | `Dict`（未池化） | DLRM-HSTU、序列模型 | 序列输出是 per-step 的，无法打包到单个 `KeyedTensor` |
 | 混合 | MultiTowerDIN、DBMTL、DAT、MIND、TDM | 部分特征组是池化的（KT），部分是序列的（Dict） |
 
-混合输出格式是 [09-export-pipeline.md](13-export-pipeline) 中描述的 `fx_mark_*` 哨兵设计所必需的：稀疏与稠密之间的边界必须在图中的多个点标记，每个标记都带有不同的类型签名。
+混合输出格式是 [09-export-pipeline.md](14-export-pipeline) 中描述的 `fx_mark_*` 哨兵设计所必需的：稀疏与稠密之间的边界必须在图中的多个点标记，每个标记都带有不同的类型签名。

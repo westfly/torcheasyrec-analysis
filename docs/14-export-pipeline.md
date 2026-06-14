@@ -402,7 +402,7 @@ RTP 对框架的其他部分有一些不明显的要求：
 | `FORCE_LOAD_SHARDING_PLAN` | `env_util.force_load_sharding_plan()` | 重用 checkpoint 中的分片计划。 |
 | `LOCAL_CACHE_DIR` | `export_model` | 当 `save_dir` 是远程 URL（fsspec）时的本地临时目录。 |
 
-> C++ IO（Scripted Model 加载、safetensors 导出）不可被 fsspec 透传，必须用 `LOCAL_CACHE_DIR` 中转。完整机制见 [USE_FSSPEC 与 fsspec 透传机制](14-fsspec) 第三节。
+> C++ IO（Scripted Model 加载、safetensors 导出）不可被 fsspec 透传，必须用 `LOCAL_CACHE_DIR` 中转。完整机制见 [USE_FSSPEC 与 fsspec 透传机制](15-fsspec) 第三节。
 
 predict-time loader 从 `model_acc.json` 读取相同的变量以选择匹配的反序列化器——参见 [`acc/utils.py`](torcheasyrec/tzrec/acc/utils.py) 中的 `*_predict()` 谓词。
 
@@ -566,5 +566,5 @@ predict-time loader 从 `model_acc.json` 读取相同的变量以选择匹配的
 ```
 
 > **进一步阅读**:
-> - [Sequence Embedding 在线推理](13-03-export-sequence-online) — FX marker 链路、sparse padding、dense slicing、INPUT_TILE 交互
-> - [RTP Sparse Model 重建](13-04-export-sparse-reconstruct) — fg.json + safetensors + metadata 三步骤重建、两种模式对比
+> - [Sequence Embedding 在线推理](14-03-export-sequence-online) — FX marker 链路、sparse padding、dense slicing、INPUT_TILE 交互
+> - [RTP Sparse Model 重建](14-04-export-sparse-reconstruct) — fg.json + safetensors + metadata 三步骤重建、两种模式对比

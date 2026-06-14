@@ -1,6 +1,6 @@
 ---
 title: 特征系统
-nav_order: 4
+nav_order: 5
 has_children: true
 parent: 训练篇
 ---
@@ -336,4 +336,4 @@ if self._fg_mode == FgMode.FG_PURE_PYTHON:
 
 ---
 
-> **进一步阅读**: [ZCH 零碰撞哈希](08-01-zch) — proto 定义、MCH 三阶段链路、淘汰策略、导出限制与在线推理方案
+> **进一步阅读**: [ZCH 零碰撞哈希](09-01-zch) — proto 定义、MCH 三阶段链路、淘汰策略、导出限制与在线推理方案

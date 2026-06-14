@@ -199,7 +199,7 @@ sparse_outputs = {
 
 稠密模型从 `sparse_outputs` 中按名取值，用 `_rtp_slice_with_seq_len` 切片。
 
-详见 [Sequence Embedding 在线推理](13-03-export-sequence-online)。
+详见 [Sequence Embedding 在线推理](14-03-export-sequence-online)。
 
 ## 参考源码
 

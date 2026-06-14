@@ -332,3 +332,7 @@ if self._fg_mode == FgMode.FG_PURE_PYTHON:
 - 与 `FG_NONE`（不应用 FG）行为 100% 一致
 - 性能回退 < 20%
 - 零 pyfg 依赖
+
+---
+
+> **进一步阅读**: [ZCH 零碰撞哈希](07-02-zch) — proto 定义、MCH 三阶段链路、淘汰策略、导出限制与在线推理方案

@@ -103,6 +103,8 @@ feature.mc_module(device) → MCHManagedCollisionModule
 
 如果特征有 `zch` 配置，其 `mc_module()` 返回 `MCHManagedCollisionModule`。`ManagedCollisionEmbeddingBagCollection` 包装了 EBC 与 collision module。
 
+> **进一步阅读**: [ZCH 零碰撞哈希](07-02-zch) — 完整的三阶段链路、淘汰策略详解、导出限制与在线推理方案
+
 ### Input Tile Embedding
 
 对于 input-tile 模式（用于生成式推荐），user 侧特征有独立的嵌入集合：

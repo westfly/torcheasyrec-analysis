@@ -598,6 +598,8 @@ TorchRec 通常拒绝 key ID ≥ `num_embeddings` 的 KJT 输入（假定为 key
 
 将 checkpoint 从基于 ZCH（`ManagedCollisionEmbeddingBagCollection`）的表迁移到 DynamicEmb 表。读取 ZCH checkpoint，将原始 ID 哈希到目标 `max_capacity` 布局，并写入 `DynamicEmbLoad` 可以摄取的 `dynamicemb/` 目录。
 
+> **背景阅读**: [ZCH 零碰撞哈希](07-02-zch) — ZCH 的完整机制、MCH 管理缓冲区结构及导出限制
+
 为什么需要这个：ZCH 使用固定 `max_id` 碰撞模块；DynamicEmb 使用开放哈希表。不同的 ID 空间 → 不同的 checkpoint。
 
 ### `tools/dynamicemb/create_dynamicemb_init_ckpt.py`

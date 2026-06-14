@@ -563,3 +563,7 @@ predict-time loader 从 `model_acc.json` 读取相同的变量以选择匹配的
 │  运行时: 加载 safetensors + 解析 fx_user_model/                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+> **进一步阅读**:
+> - [Sequence Embedding 在线推理](09-03-sequence-online) — FX marker 链路、sparse padding、dense slicing、INPUT_TILE 交互
+> - [RTP Sparse Model 重建](09-04-sparse-reconstruct) — fg.json + safetensors + metadata 三步骤重建、两种模式对比

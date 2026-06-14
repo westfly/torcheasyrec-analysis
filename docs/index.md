@@ -39,6 +39,9 @@ nav_order: 0
 | [13-04](13-04-export-sparse-reconstruct) | └ RTP Sparse Model 重建 | fg.json + safetensors + metadata 三步骤、两种 lookup 模式对比 |
 | [14](14-fsspec) | USE_FSSPEC 透传 | 外部文件系统抽象、`fsspec` 协议解析、10 个 IO 函数 monkeypatch、C++ IO 绕行 |
 | [15](15-env) | 环境变量 | 分布式/推理/特征/导出/日志/数据源/测试全表 |
+| | **案例分析** | |
+| [17](17-multi-tower-din-current) | MultiTowerDIN 当前现状 | 配置概览、Embedding 瓶颈、DIN 注意力性能、分布式通信、导出路径 |
+| [18](18-multi-tower-din-dynamicemb) | MultiTowerDIN 集成 DynamicEmb | 迁移策略、Config 示例、训练/导出/推理变化、通信分析 |
 | | **参考** | |
 | [16](16-troubleshooting) | 故障排查 | 导出/MCH/FSSPEC/INPUT_TILE/NCCL 常见问题 |
 
@@ -54,7 +57,7 @@ nav_order: 0
 
 ```
 torcheasyrec-analysis/
-├── docs/                       # 本分析文档（16 篇 + 7 子页 + 4 section header + 首页）
+├── docs/                       # 本分析文档（16 篇 + 7 子页 + 5 section header + 首页）
 ├── torcheasyrec/               # TorchEasyRec 源码子模块（pin 7dc1c188）
 ├── external/recsys-examples/   # NVIDIA recsys-examples 子模块（pin 2091502，仅用于 DynamicEmb）
 ├── .github/workflows/pages.yml # GitHub Pages CI

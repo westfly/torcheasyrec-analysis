@@ -49,4 +49,4 @@ predict 时 `UnifiedAOTIModelWrapper` 用 `torch._inductor.aoti_load_package()` 
 
 ## 与 TorchEasyRec 导出管线
 
-AOTI 编译的完整触发链路（决策树、split_model、旧版两阶段 vs 统一路径）见 [09-导出与 RTP 管线 ⇒ AOTI 后端](09-export-pipeline#6-aoti-后端)。
+AOTI 编译的完整触发链路（决策树、split_model、旧版两阶段 vs 统一路径）见 [09-导出与 RTP 管线 ⇒ AOTI 后端](13-export-pipeline#6-aoti-后端)。

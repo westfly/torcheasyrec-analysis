@@ -1,6 +1,7 @@
 ---
 title: 评估指标
-nav_order: 13
+nav_order: 8
+parent: 训练篇
 ---
 
 # 评估指标

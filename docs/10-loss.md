@@ -1,6 +1,7 @@
 ---
 title: 损失函数
-nav_order: 12
+nav_order: 7
+parent: 训练篇
 ---
 
 # 损失函数

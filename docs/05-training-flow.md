@@ -1,6 +1,7 @@
 ---
 title: 训练流程
-nav_order: 5
+nav_order: 2
+parent: 训练篇
 ---
 
 # 训练流程
@@ -150,7 +151,7 @@ def loss(self, predictions, batch):
     return losses
 ```
 
-> 内置损失函数（BinaryFocalLoss、JRCLoss、ParetoEfficientMultiTaskLoss）的详细解析见 [12-损失函数](12-loss)。
+> 内置损失函数（BinaryFocalLoss、JRCLoss、ParetoEfficientMultiTaskLoss）的详细解析见 [12-损失函数](10-loss)。
 
 ### 5. Backward + Optimizer
 
@@ -180,7 +181,7 @@ metric_result = model.compute_metric()
 
 指标通过存储在 `model._metric_modules` 中的 `torchmetrics` 对象计算。
 
-> 自定义指标（GroupedAUC、XAUC、NormalizedEntropy 等）详细解析见 [13-评估指标](13-metrics)。
+> 自定义指标（GroupedAUC、XAUC、NormalizedEntropy 等）详细解析见 [13-评估指标](11-metrics)。
 
 ## Checkpoint
 
@@ -409,7 +410,7 @@ TZRecOptimizer
 - **稠密优化器** 是标准的 per-parameter PyTorch 优化器。
 - **冻结参数**（例如 `ManagedCollisionModule` 中的 SSTable）被绑定到 `SGD(lr=0.0)`，框架仍跟踪它们但它们实际上不更新。
 
-> 优化器类型列表和 LR 调度器（ExponentialDecayLR、CosineAnnealingLR 等）详细配置见 [14-优化器与学习率调度器](14-optim)。
+> 优化器类型列表和 LR 调度器（ExponentialDecayLR、CosineAnnealingLR 等）详细配置见 [14-优化器与学习率调度器](12-optimizer)。
 
 ## 分布式训练 — Datasets
 

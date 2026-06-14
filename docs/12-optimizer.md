@@ -1,6 +1,7 @@
 ---
 title: 优化器与学习率调度器
-nav_order: 14
+nav_order: 9
+parent: 训练篇
 ---
 
 # 优化器与学习率调度器

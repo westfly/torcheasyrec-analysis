@@ -1,6 +1,7 @@
 ---
 title: 环境变量
-nav_order: 15
+nav_order: 3
+parent: 推理篇
 ---
 
 # 环境变量

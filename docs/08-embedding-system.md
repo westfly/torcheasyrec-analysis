@@ -1,6 +1,8 @@
 ---
 title: 嵌入系统
-nav_order: 8
+nav_order: 5
+has_children: true
+parent: 训练篇
 ---
 
 # 嵌入系统
@@ -103,7 +105,7 @@ feature.mc_module(device) → MCHManagedCollisionModule
 
 如果特征有 `zch` 配置，其 `mc_module()` 返回 `MCHManagedCollisionModule`。`ManagedCollisionEmbeddingBagCollection` 包装了 EBC 与 collision module。
 
-> **进一步阅读**: [ZCH 零碰撞哈希](07-02-zch) — 完整的三阶段链路、淘汰策略详解、导出限制与在线推理方案
+> **进一步阅读**: [ZCH 零碰撞哈希](08-01-zch) — 完整的三阶段链路、淘汰策略详解、导出限制与在线推理方案
 
 ### Input Tile Embedding
 
@@ -293,7 +295,7 @@ forward(sparse_feature, dense_feature, ...):
 3. **动态约束**：DynamicEmb 的所有特殊处理（4 个 monkey-patch、variant emission、storage estimator、sharding plan 改写）都在 [`dynamicemb_util.py`](../torcheasyrec/tzrec/utils/dynamicemb_util.py) 与 [`plan_util.py`](../torcheasyrec/tzrec/utils/plan_util.py) 中，`embedding.py` 完全不参与。
 4. **运行时假象**：`embedding.py` 看到的"EBC 里有这个 table"是规划视角的假象；运行时该 table 实际由 `BatchedDynamicEmbeddingTablesV2` 接管（通过 `DynamicEmbeddingBagCollectionSharder` 的 `ModuleSharder` 流程），不存在标准 EBC。
 
-详细的双视角深度解析（NVIDIA 上游 + TorchEasyRec 集成）见 [10-dynamicemb-integration](10-dynamicemb-integration)。
+详细的双视角深度解析（NVIDIA 上游 + TorchEasyRec 集成）见 [10-dynamicemb-integration](09-dynamicemb)。
 
 ## 关键文件
 
